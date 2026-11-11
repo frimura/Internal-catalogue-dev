@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#8f0010">
+  <meta name="description" content="Centi product price lookup and order builder">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <title>CENTI Catalogue INTERNAL</title>
+</head>
+<body>
+ <header class="topbar">
+  <div class="brand">
+    <img src="assets/centi-logo.png" alt="Centi Store" class="brand-logo">
+  </div>
+
+   
+  <div class="header-actions">
+    <button id="requesterIdentityBadge" class="user-header">
+      User: Select name
+    </button>
+
+    <button id="cartTop" class="cart-top" aria-label="Open cart">
+  Cart <span id="cartCount">0</span>
+</button>
+
+    <div class="header-menu">
+      <button
+        id="headerMenuButton"
+        class="header-menu-button"
+        aria-label="More options"
+        aria-expanded="false"
+        type="button"
+      >⋮</button>
+
+     <div id="headerMenu" class="header-menu-dropdown hidden">
+  <button id="settingsButton" type="button">
+    ⚙ Connection settings
+  </button>
+
+  <div class="language-setting">
+    <label for="languageSelect">Language / Bahasa</label>
+    <select id="languageSelect">
+      <option value="en">English</option>
+      <option value="id">Bahasa Indonesia</option>
+    </select>
+  </div>
+</div>
+    </div>
+  </div>
+</header>
+  <main>
+    <section class="search-area">
+      <label class="searchbox"><span>⌕</span><input id="searchInput" type="search" placeholder="Search SKU or product name…" autocomplete="off"><button id="clearSearch" aria-label="Clear search">×</button></label>
+      <div class="toolbar"><span id="resultCount">Loading catalog…</span><button id="refreshBtn" class="text-button">↻ Refresh</button></div>
+      <div id="status" class="status">Connecting to product catalog…</div>
+    </section>
+    <section id="productList" class="product-list" aria-live="polite"></section>
+    <div id="emptyState" class="empty hidden"><div class="empty-icon">⌕</div><strong>No products found</strong><span>Try another SKU or product name.</span></div>
+  </main>
+
+  
+  <!-- PRODUCT QUANTITY SELECTOR -->
+  <div id="quantityOverlay" class="overlay hidden"></div>
+
+  <section id="quantityPanel" class="quantity-panel hidden"
+           role="dialog" aria-modal="true"
+           aria-labelledby="quantityProductName">
+
+    <div class="panel-head">
+      <strong>Select quantity</strong>
+      <button id="closeQuantity" class="icon-button"
+              aria-label="Close">×</button>
+    </div>
+
+       <div class="quantity-gallery-wrap">
+      <div id="quantityGallery" class="quantity-gallery">
+        <div class="quantity-slide">
+          <img id="quantityImage" class="quantity-image hidden" alt="">
+          <div id="quantityImagePlaceholder"
+               class="quantity-image-placeholder">▧</div>
+        </div>
+
+        <div class="quantity-slide quantity-slide-desc">
+          <div id="quantityDescription" class="quantity-description"></div>
+        </div>
+      </div>
+
+      <div class="quantity-dots">
+        <button type="button" class="q-dot active" data-slide="0"
+                aria-label="Photo"></button>
+        <button type="button" class="q-dot" data-slide="1"
+                aria-label="Description"></button>
+      </div>
+    </div>
+
+    <div class="quantity-product-info quantity-info-block">
+      <strong id="quantityProductName"></strong>
+      <small id="quantityProductSku"></small>
+      <div id="quantityProductPrice" class="product-price"></div>
+    </div>
+     <div class="quantity-body">
+      <div class="quantity-row">
+        <label for="productQuantity">Quantity</label>
+
+        <div class="quantity-picker">
+          <button id="quantityMinus" type="button">−</button>
+          <input id="productQuantity" type="text"
+                 value="1"
+                 inputmode="numeric"
+                 pattern="[0-9]*"
+                 autocomplete="off">
+          <button id="quantityPlus" type="button">＋</button>
+        </div>
+      </div>
+
+      <button id="confirmAddToCart" class="primary-button quantity-add">
+        <span class="quantity-add-label">Add to Cart</span>
+        <strong id="quantitySubtotal">Rp0</strong>
+      </button>
+    </div>
+  </section>
+
+ <nav class="bottom-nav">
+
+
+
+  <button class="nav-active" id="navCatalog">
+    <span>▦</span>Catalog
+  </button>
+
+  <button id="navCart">
+  <span class="nav-icon">🛒</span>
+  <span class="nav-label" id="navCartLabel">Cart</span>
+  <b id="navCartCount">0</b>
+</button>
+
+  <button id="savedOrdersTop" type="button">
+    <span>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/>
+        <path d="M17 21v-8H7v8"/>
+        <path d="M7 3v5h8"/>
+      </svg>
+    </span>
+    Saved Orders
+  </button>
+  <button id="navImport" type="button" aria-label="Import order">
+  <span>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M12 3v12"/>
+      <path d="m7 10 5 5 5-5"/>
+      <path d="M5 19h14"/>
+    </svg>
+  </span>
+  Import
+</button>
+
+  </nav>
+  <div id="cartOverlay" class="overlay hidden"></div>
+  <aside id="cartPanel" class="cart-panel" aria-label="Shopping cart" aria-hidden="true">
+    <div class="panel-head"><div><strong>Your order</strong><small id="cartSubtitle">0 different products</small></div><button id="closeCart" class="icon-button" aria-label="Close cart">×</button></div>
+    <div id="cartItems" class="cart-items"></div>
+    <div class="cart-footer">
+    <div class="total-line">
+  <span>Total</span>
+  <strong id="cartTotal">Rp0</strong>
+</div>
+      
+
+<div class="cart-routing-grid">
+
+  <div class="routing-field order-location-field">
+    <span class="destination-label" id="orderLocationLabel">
+      Order location
+    </span>
+
+    <div class="order-location-toggle" role="group"
+         aria-labelledby="orderLocationLabel">
+      <button type="button" class="order-location-option is-active"
+              data-order-location="Pusat" aria-pressed="true">
+        Pusat
+      </button>
+      <button type="button" class="order-location-option"
+              data-order-location="Cabang Solo" aria-pressed="false">
+        Cabang Solo
+      </button>
+    </div>
+  </div>
+
+  <div class="routing-field customer-type-field">
+    <label for="customerType" class="destination-label">
+      Customer type
+    </label>
+
+    <select id="customerType" class="destination-select">
+      <option value="">Select customer</option>
+      <option value="CENTI - 3D Printing">3D Printing</option>
+      <option value="CENTI - Offline Store">Offline Store</option>
+      <option value="CENTI - WA Channel">WA Channel</option>
+    </select>
+  </div>
+
+</div>
+
+
+
+<div class="cart-actions">
+
+  <!-- ROW 1: SAVE + TELEGRAM -->
+  <div class="cart-button-row">
+
+        <div class="save-print-pair">
+      <button id="saveCartOrder" class="action-save" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/>
+          <path d="M17 21v-8H7v8"/>
+          <path d="M7 3v5h8"/>
+        </svg>
+        Save Order
+      </button>
+
+      <button id="printNotaCart" type="button">
+        <svg viewBox="0 0 24 24" width="18" height="18"
+             fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9V2h12v7"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <path d="M6 14h12v8H6z"/>
+        </svg>
+        Inv/Nota
+      </button>
+    </div>
+
+    <button id="sendOrder" type="button">
+      <svg viewBox="0 0 24 24" width="18" height="18"
+           fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="m22 2-7 20-4-9-9-4Z"/>
+        <path d="M22 2 11 13"/>
+      </svg>
+      Send to Telegram
+    </button>
+
+  </div>
+
+  <!-- ROW 2: COPY + EMPTY CART -->
+  <div class="cart-button-row">
+
+    <button id="copyOrder" class="action-copy" type="button">
+      <svg viewBox="0 0 24 24" width="18" height="18"
+           fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="4" width="7" height="7" rx="1"/>
+        <rect x="13" y="4" width="7" height="7" rx="1"/>
+        <rect x="4" y="13" width="7" height="7" rx="1"/>
+        <rect x="13" y="13" width="7" height="7" rx="1"/>
+      </svg>
+      Copy order text
+    </button>
+
+    <button id="emptyCart" type="button">
+      <svg viewBox="0 0 24 24" width="17" height="17"
+           fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18"/>
+        <path d="M8 6V4h8v2"/>
+        <path d="m19 6-1 14H6L5 6"/>
+        <path d="M10 11v5M14 11v5"/>
+      </svg>
+      Empty cart
+    </button>
+
+  </div>
+
+</div>
+
+
+<p class="footnote">
+  The catalog is public. The PIN protects Telegram order submission.
+  Do not put your Telegram bot token in this website.
+</p>
+</div>
+</aside>
+ <!-- CONNECTION SETTINGS -->
+<div id="settingsOverlay" class="overlay hidden"></div>
+
+<aside id="settingsPanel" class="pin-panel hidden" aria-label="Order PIN">
+  <div class="pin-head">
+    <div class="pin-icon">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
+           stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="11" width="16" height="10" rx="2"/>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+      </svg>
+    </div>
+    <div class="pin-titles">
+      <strong>Order PIN</strong>
+      <small>Required to send orders to Telegram</small>
+    </div>
+    <button id="closeSettings" class="icon-button" type="button"
+            aria-label="Close">×</button>
+  </div>
+
+  <div class="pin-body">
+    <label id="orderPinLabel" for="orderPin">Order access PIN</label>
+
+    <div class="pin-field">
+      <input id="orderPin" type="password" placeholder="Enter PIN"
+             autocomplete="off" inputmode="text"
+             onkeydown="if(event.key==='Enter')document.getElementById('saveSettings').click()">
+      <button type="button" class="pin-toggle"
+              onclick="const i=document.getElementById('orderPin');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'Show':'Hide'">Show</button>
+    </div>
+
+    <button id="saveSettings" class="primary-button pin-save" type="button">
+      Save PIN
+    </button>
+
+    <p class="pin-note">The PIN is stored only on this device.</p>
+  </div>
+</aside>
+  <!-- IMPORT ORDER -->
+  <div id="importOrderOverlay" class="overlay hidden"></div>
+
+  <aside id="importOrderPanel" class="cart-panel" aria-hidden="true">
+    <div class="panel-head">
+      <strong>Import Order</strong>
+      <button id="closeImportOrder" class="icon-button" type="button">×</button>
+    </div>
+
+    <div class="cart-items">
+      <label for="importOrderText">Paste order text</label>
+
+      <textarea
+        id="importOrderText"
+        rows="12"
+        placeholder="Paste your New Order text here..."
+      ></textarea>
+
+      <button id="pasteImportOrder" type="button">
+        Paste from clipboard
+      </button>
+
+      <button
+        id="confirmImportOrder"
+        class="primary-button"
+        type="button"
+      >
+        Import Order
+      </button>
+    </div>
+  </aside>
+    <!-- SAVED ORDERS -->
+  <div id="savedOrdersOverlay" class="overlay hidden"></div>
+
+  <aside id="savedOrdersPanel" class="cart-panel" aria-hidden="true">
+    <div class="panel-head">
+      <div>
+        <strong>Saved Orders</strong>
+        <small id="savedOrdersSubtitle">0 saved orders</small>
+      </div>
+      <button id="closeSavedOrders" class="icon-button" type="button">×</button>
+    </div>
+
+    <div id="savedOrdersList" class="cart-items"></div>
+  </aside>
+
+  <!-- VIEW SAVED ORDER -->
+<div id="viewOrderOverlay" class="overlay hidden"></div>
+
+<aside id="viewOrderPanel" class="cart-panel" aria-hidden="true" aria-label="Order details">
+  <div class="panel-head">
+    <div>
+      <strong id="viewOrderTitle">Order</strong>
+      <small id="viewOrderSubtitle"></small>
+    </div>
+    <button id="closeViewOrder" class="icon-button" type="button" aria-label="Close">×</button>
+  </div>
+
+  <div id="viewOrderItems" class="cart-items"></div>
+
+  <div class="cart-footer view-order-footer">
+    <div class="view-order-meta" id="viewOrderMeta"></div>
+    <div class="total-line">
+      <span>Total</span>
+      <strong id="viewOrderTotal">Rp0</strong>
+    </div>
+  </div>
+</aside>
+  
+  <div id="toast" class="toast" role="status"></div>
+  <script src="js/search.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
