@@ -1,0 +1,491 @@
+'use strict';
+
+(() => {
+  const ENDPOINT = `${SUPABASE_URL}/functions/v1/order-inbox`;
+  const RECIPIENT_KEY = 'centi_catalog_order_recipient_v1';
+
+  const COPY = {
+    en: {
+      recipient: 'Send to',
+      choose: 'Select salesman',
+      send: 'Send to salesman',
+      inbox: 'Inbox',
+      received: 'Orders sent to this name',
+      refresh: 'Refresh inbox',
+      loading: 'Loading inbox…',
+      noOrders: 'No open orders for this name.',
+      chooseName: 'Select your name before opening the inbox.',
+      needPin: 'Set the shared team PIN in Connection settings.',
+      load: 'Load to cart',
+      complete: 'Complete',
+      emptyCartConfirm: 'Replace your current cart with this received order?',
+      loaded: 'Order loaded into your cart',
+      sendConfirm: 'Send this order to',
+      sent: 'Order sent to',
+      sender: 'Sent by',
+      total: 'Total',
+      failed: 'Inbox request failed',
+      orderCompleted: 'Order marked complete',
+      dateInvalid: 'Unknown date'
+    },
+    id: {
+      recipient: 'Kirim kepada',
+      choose: 'Pilih sales',
+      send: 'Kirim ke sales',
+      inbox: 'Kotak masuk',
+      received: 'Pesanan untuk nama ini',
+      refresh: 'Muat ulang',
+      loading: 'Memuat kotak masuk…',
+      noOrders: 'Tidak ada pesanan terbuka untuk nama ini.',
+      chooseName: 'Pilih nama Anda sebelum membuka kotak masuk.',
+      needPin: 'Atur PIN tim di Pengaturan koneksi.',
+      load: 'Muat ke keranjang',
+      complete: 'Selesai',
+      emptyCartConfirm: 'Ganti keranjang saat ini dengan pesanan ini?',
+      loaded: 'Pesanan dimuat ke keranjang',
+      sendConfirm: 'Kirim pesanan ini kepada',
+      sent: 'Pesanan terkirim kepada',
+      sender: 'Dikirim oleh',
+      total: 'Total',
+      failed: 'Permintaan kotak masuk gagal',
+      orderCompleted: 'Pesanan ditandai selesai',
+      dateInvalid: 'Tanggal tidak diketahui'
+    }
+  };
+
+  let cachedInboxOrders = [];
+  let inboxRequestRunning = false;
+
+  function words() {
+    return COPY[currentLanguage === 'id' ? 'id' : 'en'];
+  }
+
+  function ensureInboxSection() {
+    const host = $('savedOrdersList');
+    if (!host) return null;
+
+    let section = $('sharedInboxSection');
+    if (!section) {
+      section = document.createElement('section');
+      section.id = 'sharedInboxSection';
+      section.className = 'shared-inbox-section';
+      host.appendChild(section);
+    }
+
+    section.innerHTML = `
+      <div class="shared-inbox-heading">
+        <div>
+          <strong>${words().received}</strong>
+          <small id="sharedInboxStatus">${words().loading}</small>
+        </div>
+        <button id="refreshSharedInbox" type="button">
+          ${words().refresh}
+        </button>
+      </div>
+      <div id="sharedInboxOrders"></div>
+    `;
+
+    return section;
+  }
+
+  function updateInboxBadge(count) {
+    const badge = $('navInboxCount');
+    if (!badge) return;
+
+    badge.textContent = String(count);
+    badge.hidden = count < 1;
+  }
+
+  function renderInboxOrders(orders) {
+    const section = ensureInboxSection();
+    if (!section) return;
+
+    const status = $('sharedInboxStatus');
+    const host = $('sharedInboxOrders');
+    if (!status || !host) return;
+
+    status.textContent = `${orders.length} open`;
+    updateInboxBadge(orders.length);
+
+    if (!orders.length) {
+      host.innerHTML = `<p class="shared-inbox-empty">${words().noOrders}</p>`;
+      return;
+    }
+
+    host.innerHTML = orders.map(order => {
+      const created = new Date(order.created_at);
+      const date = Number.isNaN(created.getTime())
+        ? words().dateInvalid
+        : created.toLocaleString();
+
+      const itemRows = (order.items || []).map(item => `
+        <li>
+          <strong>${esc(item.qty)} × ${esc(item.name)}</strong>
+          <small>${esc(item.sku)}</small>
+        </li>
+      `).join('');
+
+      return `
+        <article class="shared-order-card">
+          <div class="shared-order-top">
+            <strong>${esc(order.order_no)}</strong>
+            <small>${esc(date)}</small>
+          </div>
+
+          <p>
+            ${esc(words().sender)}: ${esc(order.sender_name)}
+          </p>
+          <p>
+            ${esc(order.customer_type)} · ${esc(order.order_location)}
+          </p>
+
+          <ul class="shared-order-items">${itemRows}</ul>
+
+          <div class="shared-order-total">
+            ${esc(words().total)}: <strong>${money(order.total)}</strong>
+          </div>
+
+          <div class="shared-order-actions">
+            <button type="button" data-load-shared="${esc(order.id)}">
+              ${words().load}
+            </button>
+            <button type="button" data-complete-shared="${esc(order.id)}">
+              ${words().complete}
+            </button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  async function callInboxApi(payload) {
+    const response = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_PUBLIC_KEY
+      },
+      body: JSON.stringify({
+        ...payload,
+        pin: (settings.pin || '').trim()
+      })
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || `${words().failed} (${response.status})`);
+    }
+
+    return result;
+  }
+
+  async function loadInbox() {
+    ensureInboxSection();
+
+    if (!REQUESTER_NAMES.includes(requesterName)) {
+      $('sharedInboxStatus').textContent = words().chooseName;
+      updateInboxBadge(0);
+      return;
+    }
+
+    if (!(settings.pin || '').trim()) {
+      $('sharedInboxStatus').textContent = words().needPin;
+      updateInboxBadge(0);
+      return;
+    }
+
+    if (inboxRequestRunning) return;
+    inboxRequestRunning = true;
+
+    try {
+      const result = await callInboxApi({
+        action: 'inbox',
+        recipientName: requesterName
+      });
+
+      cachedInboxOrders = result.orders || [];
+      renderInboxOrders(cachedInboxOrders);
+    } catch (error) {
+      const status = $('sharedInboxStatus');
+      if (status) status.textContent = error.message;
+    } finally {
+      inboxRequestRunning = false;
+    }
+  }
+
+  function populateRecipientSelect() {
+    const select = $('orderRecipient');
+    if (!select) return;
+
+    const savedRecipient = localStorage.getItem(RECIPIENT_KEY) || '';
+
+    select.innerHTML = '';
+    const choose = document.createElement('option');
+    choose.value = '';
+    choose.textContent = words().choose;
+    select.appendChild(choose);
+
+    REQUESTER_NAMES.forEach(name => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+
+    select.value = REQUESTER_NAMES.includes(savedRecipient)
+      ? savedRecipient
+      : '';
+  }
+
+  function updateLabels() {
+    const label = $('orderRecipientLabel');
+    if (label) label.textContent = words().recipient;
+
+    const button = $('sendToSalesman');
+    if (button) button.textContent = words().send;
+
+    const inboxLabel = $('navInboxLabel');
+    if (inboxLabel) inboxLabel.textContent = words().inbox;
+
+    const select = $('orderRecipient');
+    if (select?.options[0]) {
+      select.options[0].textContent = words().choose;
+    }
+
+    const section = $('sharedInboxSection');
+    if (section) ensureInboxSection();
+  }
+
+  function addControls() {
+    const routingGrid = document.querySelector('.cart-routing-grid');
+    const cartActions = document.querySelector('.cart-actions');
+    const savedOrdersButton = $('savedOrdersTop');
+
+    if (!routingGrid || !cartActions || !savedOrdersButton) {
+      console.error('Order inbox: required page elements were not found.');
+      return false;
+    }
+
+    const recipientField = document.createElement('div');
+    recipientField.className = 'routing-field shared-recipient-field';
+    recipientField.innerHTML = `
+      <label class="destination-label" id="orderRecipientLabel"></label>
+      <select id="orderRecipient" class="destination-select"></select>
+    `;
+    routingGrid.appendChild(recipientField);
+
+    const sendRow = document.createElement('div');
+    sendRow.className = 'cart-button-row shared-send-row';
+
+    const sendButton = document.createElement('button');
+    sendButton.id = 'sendToSalesman';
+    sendButton.type = 'button';
+    sendButton.className = 'primary-button shared-send-button';
+    sendRow.appendChild(sendButton);
+
+    const firstButtonRow = cartActions.querySelector('.cart-button-row');
+    if (firstButtonRow) {
+      firstButtonRow.insertAdjacentElement('afterend', sendRow);
+    } else {
+      cartActions.appendChild(sendRow);
+    }
+
+    const inboxButton = document.createElement('button');
+    inboxButton.id = 'navInbox';
+    inboxButton.type = 'button';
+    inboxButton.innerHTML = `
+      <span class="nav-icon">📥</span>
+      <span class="nav-label" id="navInboxLabel"></span>
+      <b id="navInboxCount" hidden>0</b>
+    `;
+    savedOrdersButton.insertAdjacentElement('beforebegin', inboxButton);
+
+    populateRecipientSelect();
+    updateLabels();
+
+    $('orderRecipient').addEventListener('change', event => {
+      localStorage.setItem(RECIPIENT_KEY, event.target.value);
+    });
+
+    $('sendToSalesman').addEventListener('click', sendSharedOrder);
+
+    $('navInbox').addEventListener('click', () => {
+      openSavedOrders();
+      setTimeout(() => {
+        $('sharedInboxSection')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 150);
+    });
+
+    $('languageSelect')?.addEventListener('change', updateLabels);
+
+    $('savedOrdersList').addEventListener('click', async event => {
+      const target = event.target;
+
+      if (target.closest('#refreshSharedInbox')) {
+        await loadInbox();
+        return;
+      }
+
+      const loadButton = target.closest('[data-load-shared]');
+      if (loadButton) {
+        loadSharedOrder(loadButton.dataset.loadShared);
+        return;
+      }
+
+      const completeButton = target.closest('[data-complete-shared]');
+      if (completeButton) {
+        await completeSharedOrder(completeButton.dataset.completeShared);
+      }
+    });
+
+    const originalRenderSavedOrders = renderSavedOrders;
+    renderSavedOrders = function (...args) {
+      originalRenderSavedOrders.apply(this, args);
+      void loadInbox();
+    };
+
+    setInterval(() => {
+      if ($('savedOrdersPanel')?.classList.contains('open')) {
+        void loadInbox();
+      }
+    }, 30000);
+
+    void loadInbox();
+    return true;
+  }
+
+  async function sendSharedOrder() {
+    if (!REQUESTER_NAMES.includes(requesterName)) {
+      showRequesterPrompt();
+      showToast(t('selectName'));
+      return;
+    }
+
+    const recipientName = $('orderRecipient').value;
+    if (!recipientName) {
+      showToast(words().choose);
+      return;
+    }
+
+    const items = cartValues();
+    if (!items.length) {
+      showToast(t('emptyCart'));
+      return;
+    }
+
+    const customerType = $('customerType').value;
+    if (!customerType) {
+      showToast(t('selectCustomerFirst'));
+      return;
+    }
+
+    const pin = (settings.pin || '').trim();
+    if (!pin) {
+      openSettings();
+      showToast(t('enterPIN'));
+      return;
+    }
+
+    if (!confirm(`${words().sendConfirm} ${recipientName}?`)) return;
+
+    const button = $('sendToSalesman');
+    button.disabled = true;
+
+    try {
+      const result = await callInboxApi({
+        action: 'send',
+        senderName: requesterName,
+        recipientName,
+        order: {
+          orderNo: `CAT-${getCartNo()}`,
+          customerType,
+          orderLocation,
+          items: items.map(item => ({
+            sku: item.sku,
+            name: item.name,
+            price: Number(item.price) || 0,
+            qty: Number(item.qty) || 0,
+            image: item.image || ''
+          }))
+        }
+      });
+
+      showToast(`${words().sent} ${recipientName}`);
+      if ($('savedOrdersPanel')?.classList.contains('open')) {
+        await loadInbox();
+      }
+    } catch (error) {
+      showToast(`${words().failed}: ${error.message}`);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function loadSharedOrder(id) {
+    const order = cachedInboxOrders.find(item => item.id === id);
+    if (!order) return;
+
+    const importedCart = {};
+
+    for (const item of order.items || []) {
+      const sku = String(item.sku || '').trim();
+      const qty = Math.floor(Number(item.qty) || 0);
+      if (!sku || qty < 1) continue;
+
+      const product = products.find(
+        product => String(product.sku).trim() === sku
+      );
+
+      importedCart[sku] = {
+        sku,
+        name: product?.short || product?.name || item.name || sku,
+        price: Number(item.price) || 0,
+        image: product?.image || item.image || '',
+        qty: (importedCart[sku]?.qty || 0) + qty
+      };
+    }
+
+    if (!Object.keys(importedCart).length) {
+      showToast('This order has no usable products');
+      return;
+    }
+
+    if (cartValues().length && !confirm(words().emptyCartConfirm)) {
+      return;
+    }
+
+    cart = importedCart;
+    $('customerType').value = order.customer_type || '';
+    setOrderLocation(order.order_location || 'Pusat');
+
+    // Give this new cart its own order number when it is sent again.
+    setCartNo('');
+    saveCart();
+    closeSavedOrders();
+    openCart();
+    showToast(words().loaded);
+  }
+
+  async function completeSharedOrder(id) {
+    if (!confirm(`${words().complete}?`)) return;
+
+    try {
+      await callInboxApi({
+        action: 'complete',
+        id,
+        recipientName: requesterName
+      });
+
+      showToast(words().orderCompleted);
+      await loadInbox();
+    } catch (error) {
+      showToast(`${words().failed}: ${error.message}`);
+    }
+  }
+
+  addControls();
+})();
