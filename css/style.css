@@ -1970,3 +1970,14 @@ main {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+.order-prompt-text {
+  margin: 0 0 10px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.order-prompt-summary {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
