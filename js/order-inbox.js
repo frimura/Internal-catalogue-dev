@@ -26,7 +26,7 @@
       total: 'Total',
       failed: 'Inbox request failed',
       orderCompleted: 'Order marked complete',
-      dateInvalid: 'Unknown date'      dateInvalid: 'Unknown date',
+      dateInvalid: 'Unknown date',
       orderFrom: 'Order from',
       openInCart: 'open in cart?',
       yesOpen: 'Open in cart',
