@@ -26,7 +26,12 @@
       total: 'Total',
       failed: 'Inbox request failed',
       orderCompleted: 'Order marked complete',
-      dateInvalid: 'Unknown date'
+      dateInvalid: 'Unknown date'      dateInvalid: 'Unknown date',
+      orderFrom: 'Order from',
+      openInCart: 'open in cart?',
+      yesOpen: 'Open in cart',
+      later: 'Later',
+      loadedFrom: 'Loaded from'
     },
     id: {
       recipient: 'Kirim kepada',
@@ -49,12 +54,21 @@
       total: 'Total',
       failed: 'Permintaan kotak masuk gagal',
       orderCompleted: 'Pesanan ditandai selesai',
-      dateInvalid: 'Tanggal tidak diketahui'
+      dateInvalid: 'Tanggal tidak diketahui',
+      orderFrom: 'Pesanan dari',
+      openInCart: 'buka di keranjang?',
+      yesOpen: 'Buka di keranjang',
+      later: 'Nanti',
+      loadedFrom: 'Dimuat dari'
     }
   };
 
-  let cachedInboxOrders = [];
+   let cachedInboxOrders = [];
   let inboxRequestRunning = false;
+
+  const SEEN_KEY = 'centi_inbox_seen_v1';
+  let promptQueue = [];
+  let promptOpen = false;
 
   function words() {
     return COPY[currentLanguage === 'id' ? 'id' : 'en'];
@@ -206,6 +220,7 @@
 
       cachedInboxOrders = result.orders || [];
       renderInboxOrders(cachedInboxOrders);
+      checkNewOrders(cachedInboxOrders);
     } catch (error) {
       const status = $('sharedInboxStatus');
       if (status) status.textContent = error.message;
@@ -308,11 +323,13 @@
       void loadInbox();
     };
 
-    setInterval(() => {
-      if ($('savedOrdersPanel')?.classList.contains('open')) {
-        void loadInbox();
-      }
-    }, 30000);
+        setInterval(() => {
+      if (!document.hidden && navigator.onLine) void loadInbox();
+    }, 20000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) void loadInbox();
+    });
 
     void loadInbox();
     return true;
@@ -443,10 +460,12 @@ async function sendSharedOrder(recipientName) {
     button.disabled = false;
   }
 }
-  function loadSharedOrder(id) {
+    function loadSharedOrder(id) {
     const order = cachedInboxOrders.find(item => item.id === id);
-    if (!order) return;
+    if (order) openSharedOrderInCart(order);
+  }
 
+  function openSharedOrderInCart(order) {
     const importedCart = {};
 
     for (const item of order.items || []) {
@@ -480,12 +499,14 @@ async function sendSharedOrder(recipientName) {
     $('customerType').value = order.customer_type || '';
     setOrderLocation(order.order_location || 'Pusat');
 
-    // Give this new cart its own order number when it is sent again.
-    setCartNo('');
+    // Keep the sender's order number (CAT-123 -> 123)
+    setCartNo(String(order.order_no || '').replace(/\D/g, ''));
     saveCart();
+
+    closeQuantitySelector();
     closeSavedOrders();
     openCart();
-    showToast(words().loaded);
+    showToast(`${words().loadedFrom} ${order.sender_name}`);
   }
 
   async function completeSharedOrder(id) {
@@ -504,6 +525,131 @@ async function sendSharedOrder(recipientName) {
       showToast(`${words().failed}: ${error.message}`);
     }
   }
+  /* ---------- incoming order popup ---------- */
 
+  function markSeen(id) {
+    const stored = readStorage(SEEN_KEY, []);
+    const list = Array.isArray(stored) ? stored : [];
+    if (!list.includes(id)) list.push(id);
+    writeStorage(SEEN_KEY, list.slice(-300));
+  }
+
+  function promptBlocked() {
+    const settingsEl = $('settingsPanel');
+    const identityEl = $('requesterIdentityOverlay');
+
+    return !!(
+      (settingsEl && !settingsEl.classList.contains('hidden')) ||
+      (identityEl && identityEl.style.display === 'flex') ||
+      $('notaPopupOverlay') ||
+      $('salesmanRecipientOverlay') ||
+      $('viewOrderPanel')?.classList.contains('open')
+    );
+  }
+
+  function checkNewOrders(orders) {
+    const seen = readStorage(SEEN_KEY, null);
+
+    // First run on this device: don't pop up for orders that already exist
+    if (!Array.isArray(seen)) {
+      writeStorage(SEEN_KEY, orders.map(order => order.id));
+      return;
+    }
+
+    orders.slice().reverse().forEach(order => {   // oldest first
+      if (!seen.includes(order.id) &&
+          !promptQueue.some(queued => queued.id === order.id)) {
+        promptQueue.push(order);
+      }
+    });
+
+    showNextPrompt();
+  }
+
+  function showNextPrompt() {
+    if (promptOpen || !promptQueue.length || promptBlocked()) return;
+    showOrderPrompt(promptQueue[0]);
+  }
+
+  function showOrderPrompt(order) {
+    promptOpen = true;
+
+    const count = (order.items || []).length;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'orderPromptOverlay';
+    overlay.className = 'salesman-recipient-overlay';
+
+    overlay.innerHTML = `
+      <section class="salesman-recipient-dialog"
+               role="dialog" aria-modal="true">
+        <p class="order-prompt-text">
+          ${esc(words().orderFrom)}
+          <strong>${esc(order.sender_name)}</strong>
+          — ${esc(words().openInCart)}
+        </p>
+        <p class="order-prompt-summary">
+          ${esc(order.order_no)} · ${count} ${esc(t('products'))} ·
+          ${esc(money(order.total))}
+        </p>
+        <p class="order-prompt-summary">
+          ${esc(order.customer_type)} · ${esc(order.order_location)}
+        </p>
+
+        <div class="salesman-recipient-actions">
+          <button id="orderPromptLater" type="button">
+            ${esc(words().later)}
+          </button>
+          <button id="orderPromptYes" class="primary-button" type="button">
+            ${esc(words().yesOpen)}
+          </button>
+        </div>
+      </section>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Back-gesture guard: this popup owns one history entry
+    history.pushState({ centiOrderPrompt: true }, '', location.href);
+
+    const finish = (accepted, fromBack) => {
+      overlay.remove();
+      window.closeOrderPrompt = null;
+
+      markSeen(order.id);
+      promptQueue = promptQueue.filter(queued => queued.id !== order.id);
+      promptOpen = false;
+
+      const next = () => {
+        if (accepted) openSharedOrderInCart(order);
+        else showNextPrompt();
+      };
+
+      if (fromBack) {          // the back gesture already removed the entry
+        next();
+        return;
+      }
+
+      // Remove our history entry first, then continue, so the cart's
+      // guard entry is not pushed on top of a pending history.back().
+      let done = false;
+      const run = () => {
+        if (done) return;
+        done = true;
+        next();
+      };
+
+      window.addEventListener('popstate', run, { once: true });
+      window.__skipPop = true;
+      history.back();
+      setTimeout(run, 400);    // fallback
+    };
+
+    window.closeOrderPrompt = () => finish(false, true);
+
+    $('orderPromptLater').onclick = () => finish(false, false);
+    $('orderPromptYes').onclick = () => finish(true, false);
+    // No tap-outside-to-close: the choice should be deliberate.
+  }
   addControls();
 })();
