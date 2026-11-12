@@ -1,7 +1,7 @@
 'use strict';
 
 (() => {
-  const ENDPOINT = `${SUPABASE_URL}/functions/v1/order-inbox`;
+   const ENDPOINT = `${SUPABASE_URL}/functions/v1/smooth-handler`;
 
 
   const COPY = {
