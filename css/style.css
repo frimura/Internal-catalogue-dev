@@ -1918,3 +1918,55 @@ main {
     font-size: 10px;
   }
 }
+.salesman-recipient-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, .58);
+}
+
+.salesman-recipient-dialog {
+  width: min(420px, 100%);
+  padding: 20px;
+  border-radius: 16px;
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 16px 48px rgba(20, 31, 52, .25);
+}
+
+.salesman-recipient-dialog h2 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.salesman-recipient-dialog label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.salesman-recipient-dialog select {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+}
+
+.salesman-recipient-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.salesman-recipient-actions button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
