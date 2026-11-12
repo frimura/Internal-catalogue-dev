@@ -320,8 +320,8 @@
       </svg>
     </div>
     <div class="pin-titles">
-      <strong>Order PIN</strong>
-     <small>Required for Telegram and the shared order inbox</small>
+      <strong>Order PINs</strong>
+<small>Telegram and the shared inbox have separate PINs</small>
     </div>
     <button id="closeSettings" class="icon-button" type="button"
             aria-label="Close">×</button>
@@ -337,13 +337,21 @@
       <button type="button" class="pin-toggle"
               onclick="const i=document.getElementById('orderPin');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'Show':'Hide'">Show</button>
     </div>
+    <label id="inboxPinLabel" for="inboxPin">Shared inbox PIN</label>
 
+    <div class="pin-field">
+      <input id="inboxPin" type="password"
+             placeholder="Enter shared inbox PIN"
+             autocomplete="off" inputmode="text">
+      <button type="button" class="pin-toggle"
+              onclick="const i=document.getElementById('inboxPin');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'Show':'Hide'">Show</button>
+    </div>
     <button id="saveSettings" class="primary-button pin-save" type="button">
       Save PIN
     </button>
 
     <p class="pin-note">
-  Enter the same team PIN on every device. It is stored only on this device.
+  Each PIN is stored only on this device. Use the same inbox PIN on shared devices.
 </p>
   </div>
 </aside>
