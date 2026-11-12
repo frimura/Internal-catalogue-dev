@@ -260,7 +260,11 @@ setButtonLabel('emptyCart', t('emptyCart'));
   renderCart();
 
 }
-
+const inboxPinLabel = $('inboxPinLabel');
+if (inboxPinLabel) {
+  inboxPinLabel.textContent =
+    currentLanguage === 'id' ? 'PIN kotak masuk bersama' : 'Shared inbox PIN';
+}
 /* =========================================================
    3. STATE AND STORAGE
    ========================================================= */
@@ -2076,6 +2080,8 @@ function openSettings() {
 
   $('orderPin').value = settings.pin || '';
   $('orderPin').type = 'password';
+   $('inboxPin').value = settings.inboxPin || '';
+$('inboxPin').type = 'password';
 
   if (!window.matchMedia('(pointer: coarse)').matches) {
     $('orderPin').focus();
@@ -2331,8 +2337,11 @@ if (settingsOverlay) {
 }
 
     $('saveSettings').onclick = () => {
-    settings = { pin: $('orderPin').value.trim() };
-
+    settings = {
+  ...settings,
+  pin: $('orderPin').value.trim(),
+  inboxPin: $('inboxPin').value.trim()
+};
     writeStorage(CONFIG.settingsKey, settings);
     closeSettings();
     showToast(t('settingsSaved'));
