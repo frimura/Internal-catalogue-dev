@@ -2,7 +2,7 @@
 
 (() => {
   const ENDPOINT = `${SUPABASE_URL}/functions/v1/order-inbox`;
-  const RECIPIENT_KEY = 'centi_catalog_order_recipient_v1';
+
 
   const COPY = {
     en: {
@@ -167,7 +167,7 @@
       },
       body: JSON.stringify({
         ...payload,
-        pin: (settings.pin || '').trim()
+        pin: (settings.inboxPin || '').trim()
       })
     });
 
@@ -189,7 +189,7 @@
       return;
     }
 
-    if (!(settings.pin || '').trim()) {
+    if (!(settings.inboxPin || '').trim()) {
       $('sharedInboxStatus').textContent = words().needPin;
       updateInboxBadge(0);
       return;
@@ -214,33 +214,8 @@
     }
   }
 
-  function populateRecipientSelect() {
-    const select = $('orderRecipient');
-    if (!select) return;
-
-    const savedRecipient = localStorage.getItem(RECIPIENT_KEY) || '';
-
-    select.innerHTML = '';
-    const choose = document.createElement('option');
-    choose.value = '';
-    choose.textContent = words().choose;
-    select.appendChild(choose);
-
-    REQUESTER_NAMES.forEach(name => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      select.appendChild(option);
-    });
-
-    select.value = REQUESTER_NAMES.includes(savedRecipient)
-      ? savedRecipient
-      : '';
-  }
-
   function updateLabels() {
-    const label = $('orderRecipientLabel');
-    if (label) label.textContent = words().recipient;
+
 
     const button = $('sendToSalesman');
     if (button) button.textContent = words().send;
@@ -248,32 +223,20 @@
     const inboxLabel = $('navInboxLabel');
     if (inboxLabel) inboxLabel.textContent = words().inbox;
 
-    const select = $('orderRecipient');
-    if (select?.options[0]) {
-      select.options[0].textContent = words().choose;
-    }
 
     const section = $('sharedInboxSection');
     if (section) ensureInboxSection();
   }
 
   function addControls() {
-    const routingGrid = document.querySelector('.cart-routing-grid');
     const cartActions = document.querySelector('.cart-actions');
     const savedOrdersButton = $('savedOrdersTop');
 
-    if (!routingGrid || !cartActions || !savedOrdersButton) {
+    if (!cartActions || !savedOrdersButton) {
       console.error('Order inbox: required page elements were not found.');
       return false;
     }
 
-    const recipientField = document.createElement('div');
-    recipientField.className = 'routing-field shared-recipient-field';
-    recipientField.innerHTML = `
-      <label class="destination-label" id="orderRecipientLabel"></label>
-      <select id="orderRecipient" class="destination-select"></select>
-    `;
-    routingGrid.appendChild(recipientField);
 
     const sendRow = document.createElement('div');
     sendRow.className = 'cart-button-row shared-send-row';
@@ -301,14 +264,11 @@
     `;
     savedOrdersButton.insertAdjacentElement('beforebegin', inboxButton);
 
-    populateRecipientSelect();
+
     updateLabels();
 
-    $('orderRecipient').addEventListener('change', event => {
-      localStorage.setItem(RECIPIENT_KEY, event.target.value);
-    });
 
-    $('sendToSalesman').addEventListener('click', sendSharedOrder);
+    $('sendToSalesman').addEventListener('click', openRecipientPopup);
 
     $('navInbox').addEventListener('click', () => {
       openSavedOrders();
@@ -357,74 +317,132 @@
     void loadInbox();
     return true;
   }
+function openRecipientPopup() {
+  if (!REQUESTER_NAMES.includes(requesterName)) {
+    showRequesterPrompt();
+    showToast(t('selectName'));
+    return;
+  }
 
-  async function sendSharedOrder() {
-    if (!REQUESTER_NAMES.includes(requesterName)) {
-      showRequesterPrompt();
-      showToast(t('selectName'));
-      return;
-    }
+  if (!cartValues().length) {
+    showToast(t('emptyCart'));
+    return;
+  }
 
-    const recipientName = $('orderRecipient').value;
+  const cancelLabel = currentLanguage === 'id' ? 'Batal' : 'Cancel';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'salesmanRecipientOverlay';
+  overlay.className = 'salesman-recipient-overlay';
+
+  overlay.innerHTML = `
+    <section class="salesman-recipient-dialog"
+             role="dialog" aria-modal="true">
+      <h2>${esc(words().send)}</h2>
+      <label for="salesmanRecipientSelect">
+        ${esc(words().choose)}
+      </label>
+
+      <select id="salesmanRecipientSelect">
+        <option value="">${esc(words().choose)}</option>
+        ${REQUESTER_NAMES.map(name => `
+          <option value="${esc(name)}">${esc(name)}</option>
+        `).join('')}
+      </select>
+
+      <div class="salesman-recipient-actions">
+        <button id="cancelSalesmanPopup" type="button">
+          ${esc(cancelLabel)}
+        </button>
+        <button id="confirmSalesmanPopup"
+                class="primary-button" type="button">
+          ${esc(words().send)}
+        </button>
+      </div>
+    </section>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const closePopup = () => overlay.remove();
+
+  $('cancelSalesmanPopup').onclick = closePopup;
+
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) closePopup();
+  });
+
+  $('confirmSalesmanPopup').onclick = async () => {
+    const recipientName = $('salesmanRecipientSelect').value;
+
     if (!recipientName) {
       showToast(words().choose);
       return;
     }
 
-    const items = cartValues();
-    if (!items.length) {
-      showToast(t('emptyCart'));
-      return;
-    }
+    closePopup();
+    await sendSharedOrder(recipientName);
+  };
+}
 
-    const customerType = $('customerType').value;
-    if (!customerType) {
-      showToast(t('selectCustomerFirst'));
-      return;
-    }
-
-    const pin = (settings.pin || '').trim();
-    if (!pin) {
-      openSettings();
-      showToast(t('enterPIN'));
-      return;
-    }
-
-    if (!confirm(`${words().sendConfirm} ${recipientName}?`)) return;
-
-    const button = $('sendToSalesman');
-    button.disabled = true;
-
-    try {
-      const result = await callInboxApi({
-        action: 'send',
-        senderName: requesterName,
-        recipientName,
-        order: {
-          orderNo: `CAT-${getCartNo()}`,
-          customerType,
-          orderLocation,
-          items: items.map(item => ({
-            sku: item.sku,
-            name: item.name,
-            price: Number(item.price) || 0,
-            qty: Number(item.qty) || 0,
-            image: item.image || ''
-          }))
-        }
-      });
-
-      showToast(`${words().sent} ${recipientName}`);
-      if ($('savedOrdersPanel')?.classList.contains('open')) {
-        await loadInbox();
-      }
-    } catch (error) {
-      showToast(`${words().failed}: ${error.message}`);
-    } finally {
-      button.disabled = false;
-    }
+async function sendSharedOrder(recipientName) {
+  if (!REQUESTER_NAMES.includes(requesterName)) {
+    showRequesterPrompt();
+    showToast(t('selectName'));
+    return;
   }
 
+  const items = cartValues();
+  if (!items.length) {
+    showToast(t('emptyCart'));
+    return;
+  }
+
+  const customerType = $('customerType').value;
+  if (!customerType) {
+    showToast(t('selectCustomerFirst'));
+    return;
+  }
+
+  if (!(settings.inboxPin || '').trim()) {
+    openSettings();
+    showToast(words().needPin);
+    return;
+  }
+
+  const button = $('sendToSalesman');
+  button.disabled = true;
+
+  try {
+    await callInboxApi({
+      action: 'send',
+      senderName: requesterName,
+      recipientName,
+      order: {
+        orderNo: `CAT-${getCartNo()}`,
+        customerType,
+        orderLocation,
+        items: items.map(item => ({
+          sku: item.sku,
+          name: item.name,
+          price: Number(item.price) || 0,
+          qty: Number(item.qty) || 0,
+          image: item.image || ''
+        }))
+      }
+    });
+
+    showToast(`${words().sent} ${recipientName}`);
+
+    if ($('savedOrdersPanel')?.classList.contains('open')) {
+      await loadInbox();
+    }
+  } catch (error) {
+    showToast(`${words().failed}: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+}
   function loadSharedOrder(id) {
     const order = cachedInboxOrders.find(item => item.id === id);
     if (!order) return;
