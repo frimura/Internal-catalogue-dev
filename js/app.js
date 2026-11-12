@@ -255,16 +255,17 @@ setButtonLabel('emptyCart', t('emptyCart'));
     const pinLabel = $('orderPinLabel');
   if (pinLabel) pinLabel.textContent = t('orderPIN');
 
+   const inboxPinLabel = $('inboxPinLabel');
+if (inboxPinLabel) {
+  inboxPinLabel.textContent =
+    currentLanguage === 'id' ? 'PIN kotak masuk bersama' : 'Shared inbox PIN';
+}
   updateRequesterBadge();
   renderProducts();
   renderCart();
 
 }
-const inboxPinLabel = $('inboxPinLabel');
-if (inboxPinLabel) {
-  inboxPinLabel.textContent =
-    currentLanguage === 'id' ? 'PIN kotak masuk bersama' : 'Shared inbox PIN';
-}
+
 /* =========================================================
    3. STATE AND STORAGE
    ========================================================= */
