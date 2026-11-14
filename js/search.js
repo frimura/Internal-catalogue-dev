@@ -358,19 +358,22 @@ function expandSameSubgroup(hits) {
     for (const d of docs) {
       if (hideSet.has(d.key)) continue;
 
-      let total = 0, matched = 0, mainMatched = 0, fullMatched = 0;
+           let total = 0, matched = 0, mainMatched = 0, fullMatched = 0;
       let exactDimensions = 0, partialDimensions = 0, bonus = 0, prev = -9;
+      let textGroups = 0, textMatched = 0;
 
       for (let g = 0; g < groups.length; g++) {
         const main = scoreGroup(groups[g], d.main);
         const full = scoreGroup(groups[g], d.full);
-        const r = main.s >= full.s ? main : full;
+                const r = main.s >= full.s ? main : full;
+        const queryHasNumber = groups[g].alts.some(a => a.toks.some(t => !!t.n));
+        if (!queryHasNumber) textGroups++;
         if (r.s > 0) {
           matched++;
           total += r.s;
           if (main.s > 0) mainMatched++;
           else fullMatched++;
-          const queryHasNumber = groups[g].alts.some(a => a.toks.some(t => !!t.n));
+          if (!queryHasNumber) textMatched++;
           if (queryHasNumber) {
             if (r.s >= 95) exactDimensions++;
             else partialDimensions++;
@@ -392,13 +395,16 @@ function expandSameSubgroup(hits) {
       // Keep every item in a requested category, even if its title has no
       // matching dimensions or wording. Text/dimension matches rank within it.
             if (!matched) continue;
+      // when the query has real words (not just sizes), at least one must match
+      if (textGroups > 0 && textMatched === 0) continue;
 
       const coverage = matched / Math.max(1, groups.length);
       let score = total + bonus + matched * 38;
       score += coverage * 100;
       score += mainMatched * 12;
       score -= fullMatched * 3;
-      score += exactDimensions * 32 + partialDimensions * 8;
+            score += exactDimensions * 32 + partialDimensions * 8;
+      if (textGroups > 0) score += textMatched * 120;   // words matter more than sizes
       if (categoryMatch) score += 420;
       if (matched === groups.length) score += 90;
       if (matched === 0 && categoryMatch) score += 0;
