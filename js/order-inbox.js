@@ -356,11 +356,8 @@ function openRecipientPopup() {
     return;
   }
 
-  if (!$('customerType').value) {
-    showToast(t('selectCustomerFirst'));
-    return;
-  }
-
+   if (!requireCustomer()) return;
+   
   const cancelLabel = currentLanguage === 'id' ? 'Batal' : 'Cancel';
   let selectedRecipient = '';
 
@@ -457,7 +454,7 @@ async function sendSharedOrder(recipientName) {
     showToast(words().needPin);
     return;
   }
-  if (!ensureFreshCartNo()) return;
+    if (!(await ensureFreshCartNo('salesman'))) return;
   const button = $('sendToSalesman');
   button.disabled = true;
 
@@ -480,7 +477,7 @@ async function sendSharedOrder(recipientName) {
       }
     });
      
-    markNoUsed();
+        markNoUsed('salesman');
     showToast(`${words().sent} ${recipientName}`);
 
     if ($('inboxPanel')?.classList.contains('open')) {
@@ -575,6 +572,7 @@ async function sendSharedOrder(recipientName) {
       (identityEl && identityEl.style.display === 'flex') ||
       $('notaPopupOverlay') ||
       $('salesmanRecipientOverlay') ||
+             $('invoiceNoOverlay') ||
       $('inboxPanel')?.classList.contains('open') ||
       $('viewOrderPanel')?.classList.contains('open')
     );
