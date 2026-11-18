@@ -1309,6 +1309,61 @@ function setCartNo(no) {
   if (no) localStorage.setItem(CART_NO_KEY, no);
   else localStorage.removeItem(CART_NO_KEY);
 }
+
+/* ---------- used invoice numbers ---------- */
+const USED_NOS_KEY = 'centi_catalog_used_nos_v1';
+let usedNos = readStorage(USED_NOS_KEY, {});
+if (!usedNos || Array.isArray(usedNos)) usedNos = {};
+
+function cartSignature() {
+  return cartValues()
+    .map(item => `${item.sku}:${item.qty}`)
+    .sort()
+    .join('|');
+}
+
+function markNoUsed() {
+  usedNos[getCartNo()] = cartSignature();
+
+  const keys = Object.keys(usedNos);
+  if (keys.length > 500) {
+    keys.slice(0, keys.length - 500).forEach(key => delete usedNos[key]);
+  }
+  writeStorage(USED_NOS_KEY, usedNos);
+}
+
+// true = OK to continue. If this number was already sent with a
+// DIFFERENT cart, offer a new invoice number instead of blocking.
+function ensureFreshCartNo() {
+  const no = getCartNo();
+
+  if (!(no in usedNos) || usedNos[no] === cartSignature()) return true;
+
+  const ok = confirm(
+    currentLanguage === 'id'
+      ? `Nomor ${no} sudah pernah dikirim dengan isi keranjang berbeda.\n\nBuat nomor invoice baru?`
+      : `Number ${no} was already sent with a different cart.\n\nCreate a new invoice number?`
+  );
+  if (!ok) return false;
+
+  setCartNo(newOrderNo());
+  return true;
+}
+
+function requireCustomer() {
+  const select = $('customerType');
+  if (select.value) return true;
+
+  showToast(t('selectCustomerFirst'));
+  select.focus();
+  select.style.outline = '2px solid #dc2626';
+  setTimeout(() => { select.style.outline = ''; }, 1500);
+  return false;
+}
+
+function savedTitle(order) {
+  return order.invoiceNumber || order.orderNo || order.name || 'Order';
+}
 function cartValues() {
   return Object.values(cart).filter(item => item.qty > 0);
 }
@@ -1423,11 +1478,16 @@ items.forEach(item => {
     items.reduce((sum, item) => sum + item.price * item.qty, 0)
   );
 
-  const canUseCart = items.length > 0 && Boolean($('customerType').value);
+   const hasItems = items.length > 0;
 
   // Keep the close button usable so the customer can close the cart.
   document.querySelectorAll('#cartPanel button:not(#closeCart)').forEach(button => {
-    button.disabled = !canUseCart;
+    button.disabled = !hasItems;
+  });
+
+  // Dim (not disable) the action buttons until a customer is chosen
+  document.querySelectorAll('#cartPanel .cart-actions button').forEach(button => {
+    button.classList.toggle('needs-customer', hasItems && !$('customerType').value);
   });
    
   $('cartItems').querySelectorAll('[data-minus]').forEach(button => {
@@ -1484,46 +1544,38 @@ function emptyCart() {
 
 function saveCurrentOrder() {
   const items = cartValues();
-
   if (!items.length) return;
+  if (!requireCustomer()) return;
 
-  const name = prompt('Masukkan nama / Nomor Pelanggan');
+  const no = getCartNo();
 
-  if (name === null) return;
+  // Same invoice number already saved -> update it instead of duplicating
+  const existing = savedOrders.findIndex(o => o.orderNo === no);
+  if (existing >= 0 && !confirm(`INV-${no} sudah tersimpan. Perbarui?`)) return;
 
-  const cleanName = name.trim();
+  const oldName = existing >= 0 ? (savedOrders[existing].name || '') : '';
+  const name = prompt('Nama / Nomor Pelanggan (opsional)', oldName);
+  if (name === null) return;          // Cancel still aborts; blank is allowed
 
-  if (!cleanName) {
-    showToast('Please enter an order name');
-    return;
-  }
-
- const savedAt = new Date();
-const orderId = 'SAVED-' + savedAt.getTime();
-
-const order = {
-  id: orderId,
-    orderNo: getCartNo(),
-  invoiceNumber: 'INV-' + getCartNo(),
-    name: cleanName,
+  const order = {
+    id: 'SAVED-' + Date.now(),
+    orderNo: no,
+    invoiceNumber: 'INV-' + no,
+    name: name.trim(),
     createdAt: new Date().toISOString(),
-        requesterName,
+    requesterName,
     customerType: $('customerType').value,
     orderLocation,
-
     items: JSON.parse(JSON.stringify(items)),
-    total: items.reduce(
-      (sum, item) => sum + item.price * item.qty, 0
-    )
+    total: items.reduce((sum, item) => sum + item.price * item.qty, 0)
   };
 
+  if (existing >= 0) savedOrders.splice(existing, 1);
   savedOrders.unshift(order);
 
   writeStorage(CONFIG.savedOrdersKey, savedOrders);
-
   renderSavedOrders();
-
-  showToast(`Order "${cleanName}" saved`);
+  showToast(`${order.invoiceNumber} saved`);
 }
 
 function renderSavedOrders() {
@@ -1546,7 +1598,8 @@ function renderSavedOrders() {
     <div class="saved-order-card" data-saved-id="${esc(order.id)}">
 
       <div class="saved-order-info">
-        <strong>${esc(order.name)}</strong>
+        <strong>${esc(savedTitle(order))}</strong>
+        ${order.name ? `<small>${esc(order.name)}</small>` : ''}
 
         <small>
           ${order.items.length} different products ·
@@ -1892,13 +1945,11 @@ async function sendOrder() {
     return;
   }
 
+    if (!requireCustomer()) return;
+  if (!ensureFreshCartNo()) return;
+
   const order = orderText();
   const customerType = $('customerType').value;
-
-  if (!customerType) {
-    showToast(t('selectCustomerFirst'));
-    return;
-  }
 
   order.customerType = customerType;
   order.orderLocation = orderLocation;
@@ -1958,7 +2009,8 @@ if (!response.ok || !result.ok) {
 
 
     showToast(t('sentTelegram'));
-
+    markNoUsed();
+     
   } catch (error) {
     showToast(`${t('orderFailed')}: ${error.message}. ${t('sendFailedCopy')}`);
   } finally {
@@ -2054,6 +2106,7 @@ function importOrderFromText() {
   showToast(`Imported ${Object.keys(importedCart).length} products`);
 }
 async function copyOrder() {
+     if (!requireCustomer()) return;
   try {
     await navigator.clipboard.writeText(orderText().text);
     showToast(t('orderCopied'));
@@ -2173,8 +2226,10 @@ window.addEventListener('popstate', () => {
     closeQuantitySelector();
   } else if (!$('settingsPanel').classList.contains('hidden')) {
     closeSettings();
-  } else if ($('importOrderPanel').classList.contains('open')) {
+   } else if ($('importOrderPanel').classList.contains('open')) {
     closeImportOrder();
+  } else if ($('inboxPanel') && $('inboxPanel').classList.contains('open')) {
+    closeInbox();
   } else if (!$('savedOrdersPanel').classList.contains('hidden')) {
     closeSavedOrders();
   }
@@ -2463,8 +2518,9 @@ initializeApp();
     const items = order.items || order.cart || [];
     let total = 0;
 
-    $('viewOrderTitle').textContent = order.name || 'Order';
-    $('viewOrderSubtitle').textContent = `${items.length} different products`;
+    $('viewOrderTitle').textContent = order.invoiceNumber || order.name || 'Order';
+    $('viewOrderSubtitle').textContent =
+      `${items.length} different products` + (order.name ? ` · ${order.name}` : '');
 
     $('viewOrderItems').innerHTML = items.map(it => {
       const qty = Number(it.qty ?? it.quantity ?? 1);
