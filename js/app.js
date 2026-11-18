@@ -1310,20 +1310,15 @@ function setCartNo(no) {
   else localStorage.removeItem(CART_NO_KEY);
 }
 
-/* ---------- used invoice numbers ---------- */
+/* ---------- used invoice numbers (per channel) ---------- */
 const USED_NOS_KEY = 'centi_catalog_used_nos_v1';
 let usedNos = readStorage(USED_NOS_KEY, {});
-if (!usedNos || Array.isArray(usedNos)) usedNos = {};
+if (!usedNos || typeof usedNos !== 'object' || Array.isArray(usedNos)) usedNos = {};
 
-function cartSignature() {
-  return cartValues()
-    .map(item => `${item.sku}:${item.qty}`)
-    .sort()
-    .join('|');
-}
-
-function markNoUsed() {
-  usedNos[getCartNo()] = cartSignature();
+// channel: 'telegram' or 'salesman'
+function markNoUsed(channel) {
+  const no = getCartNo();
+  usedNos[no] = { ...(typeof usedNos[no] === 'object' ? usedNos[no] : {}), [channel]: true };
 
   const keys = Object.keys(usedNos);
   if (keys.length > 500) {
@@ -1332,24 +1327,63 @@ function markNoUsed() {
   writeStorage(USED_NOS_KEY, usedNos);
 }
 
-// true = OK to continue. If this number was already sent with a
-// DIFFERENT cart, offer a new invoice number instead of blocking.
-function ensureFreshCartNo() {
-  const no = getCartNo();
+function askResendOrNew(no) {
+  return new Promise(resolve => {
+    const id = currentLanguage === 'id';
 
-  if (!(no in usedNos) || usedNos[no] === cartSignature()) return true;
+    const overlay = document.createElement('div');
+    overlay.id = 'invoiceNoOverlay';
+    overlay.className = 'salesman-recipient-overlay';
+    overlay.innerHTML = `
+      <section class="salesman-recipient-dialog" role="dialog" aria-modal="true">
+        <h2>${id ? 'Nomor sudah terkirim' : 'Number already sent'}</h2>
+        <p class="order-prompt-text">
+          ${id
+            ? `Pesanan <strong>CAT-${esc(no)}</strong> sudah pernah dikirim. Apa yang ingin Anda lakukan?`
+            : `Order <strong>CAT-${esc(no)}</strong> was already sent. What do you want to do?`}
+        </p>
+        <div style="display:grid;gap:10px;margin-top:14px">
+          <button type="button" data-choice="resend"
+            style="min-height:46px;border:1px solid var(--line);border-radius:10px;
+                   background:#fff;color:var(--ink);font-weight:700">
+            ${id ? 'Kirim ulang (nomor sama)' : 'Resend (same number)'}
+          </button>
+          <button type="button" data-choice="new" class="primary-button"
+            style="min-height:46px">
+            ${id ? 'Buat nomor baru' : 'Create new number'}
+          </button>
+          <button type="button" data-choice="cancel"
+            style="min-height:42px;border:0;background:none;color:var(--muted);font-weight:700">
+            ${id ? 'Batal' : 'Cancel'}
+          </button>
+        </div>
+      </section>`;
 
-  const ok = confirm(
-    currentLanguage === 'id'
-      ? `Nomor ${no} sudah pernah dikirim dengan isi keranjang berbeda.\n\nBuat nomor invoice baru?`
-      : `Number ${no} was already sent with a different cart.\n\nCreate a new invoice number?`
-  );
-  if (!ok) return false;
+    document.body.appendChild(overlay);
 
-  setCartNo(newOrderNo());
-  return true;
+    overlay.querySelectorAll('[data-choice]').forEach(button => {
+      button.addEventListener('click', () => {
+        overlay.remove();
+        resolve(button.dataset.choice);
+      });
+    });
+  });
 }
 
+// true = OK to continue, false = user cancelled
+async function ensureFreshCartNo(channel) {
+  const no = getCartNo();
+
+  if (!(usedNos[no] && usedNos[no][channel])) return true;
+
+  const choice = await askResendOrNew(no);
+
+  if (choice === 'new') {
+    setCartNo(newOrderNo());
+    return true;
+  }
+  return choice === 'resend';
+}
 function requireCustomer() {
   const select = $('customerType');
   if (select.value) return true;
@@ -1720,7 +1754,7 @@ async function copySavedInvoice(id) {
   y += 38;
   ctx.fillStyle = '#171717';
   ctx.font = 'bold 28px Arial';
-  ctx.fillText(String(order.name), padding, y);
+    ctx.fillText(String(order.name || order.customerType || '-'), padding, y);
 
   // Items header
   y += 65;
@@ -1830,7 +1864,7 @@ function loadSavedOrder(id) {
 
   if (cartValues().length) {
     if (!confirm(
-      'Replace your current cart with "' + order.name + '"?'
+      'Replace your current cart with ' + savedTitle(order) + '?'
     )) {
       return;
     }
@@ -1857,7 +1891,7 @@ function loadSavedOrder(id) {
   closeSavedOrders();
   openCart();
 
-  showToast(`Loaded "${order.name}"`);
+ showToast(`Loaded ${savedTitle(order)}`);
 }
 
 function deleteSavedOrder(id) {
@@ -1865,7 +1899,7 @@ function deleteSavedOrder(id) {
 
   if (!order) return;
 
-  if (!confirm(`Delete saved order "${order.name}"?`)) {
+  if (!confirm(`Delete saved order ${savedTitle(order)}?`)) {
     return;
   }
 
@@ -1946,7 +1980,7 @@ async function sendOrder() {
   }
 
     if (!requireCustomer()) return;
-  if (!ensureFreshCartNo()) return;
+    if (!(await ensureFreshCartNo('telegram'))) return;
 
   const order = orderText();
   const customerType = $('customerType').value;
@@ -2009,7 +2043,7 @@ if (!response.ok || !result.ok) {
 
 
     showToast(t('sentTelegram'));
-    markNoUsed();
+        markNoUsed('telegram');
      
   } catch (error) {
     showToast(`${t('orderFailed')}: ${error.message}. ${t('sendFailedCopy')}`);
