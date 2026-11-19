@@ -3121,9 +3121,13 @@ initializeApp();
       : 'Gambar tidak bisa disalin');
 
     setTimeout(() => {
-      window.location.href =
-        `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(buildText(data))}`;
-    }, 700);
+  const whatsappTab = window.open('about:blank', '_blank');
+  if (whatsappTab) {
+    whatsappTab.opener = null;
+    whatsappTab.location.href =
+      `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(buildText(data))}`;
+  }
+}, 700);
   }
    
   /* ---------- print ---------- */
