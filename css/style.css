@@ -251,7 +251,7 @@ main {
   font-size: 13px;
   font-weight: 750;
 }
-.product-price.price-down { color: #16845b; }  /* cheaper: green */
+.product-price.price-down { color: #0d9488; }  /* cheaper: green */
 .product-price.price-up   { color: #dc2626; }  /* pricier: red */
 .add-button:active,
 .primary-button:active {
