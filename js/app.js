@@ -511,9 +511,8 @@ function normalize(rows) {
     price: indexOf('regular price'),
     name: indexOf('name'),
     variation: indexOf('variation'),
-        category: indexOf('code categorizing'),
-    description: indexOf('web description')
-         newPrice: indexOf('new price'),
+   category: indexOf('code categorizing'),
+    newPrice: indexOf('new price'),
     description: indexOf('web description')
   };
 
