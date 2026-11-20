@@ -2008,29 +2008,75 @@ main {
 /* Cart action buttons before a customer is chosen: dimmed but clickable */
 #cartPanel .cart-actions button.needs-customer { opacity: .55; }
 /* =========================================================
-   DESKTOP: CATALOG LEFT, CART ALWAYS VISIBLE ON THE RIGHT
+   DESKTOP: COLLAPSIBLE CART ON THE FAR RIGHT
    ========================================================= */
-@media (min-width: 1000px) {
-  /* leave room for the cart column */
-  body { padding-right: 440px; }
+.cart-tab { display: none; }
 
-  /* cart becomes a fixed side column under the header */
+@media (min-width: 1000px) {
+  body {
+    padding-right: 440px;
+    transition: padding-right .22s ease;
+  }
+  body.cart-collapsed { padding-right: 0; }
+
   #cartPanel {
     top: 68px;
     bottom: 0;
+    right: 0;
     width: 440px;
     transform: none !important;
-    transition: none;
+    transition: transform .22s ease;
     border-left: 1px solid var(--line);
     box-shadow: none;
   }
+  body.cart-collapsed #cartPanel {
+    transform: translateX(100%) !important;
+  }
 
-  /* no dark overlay, no close button, no cart buttons needed */
   #cartOverlay,
   #closeCart,
   .cart-top,
   #navCart { display: none !important; }
 
-  /* bottom nav stops before the cart column */
-  .bottom-nav { right: 440px; }
+  .bottom-nav {
+    right: 440px;
+    transition: right .22s ease;
+  }
+  body.cart-collapsed .bottom-nav { right: 0; }
+
+  /* tab attached to the cart's left edge */
+  .cart-tab {
+    position: fixed;
+    top: 50%;
+    right: 440px;
+    transform: translateY(-50%);
+    z-index: 12;
+    width: 46px;
+    height: 136px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 14px 0 0 14px;
+    background: #111827;
+    color: #fff;
+    box-shadow: -4px 0 14px rgba(20, 31, 52, .18);
+    transition: right .22s ease, background .15s;
+  }
+  .cart-tab:hover { background: #1f2937; }
+  body.cart-collapsed .cart-tab { right: 0; }
+
+  .cart-tab-icon { font-size: 20px; line-height: 1; }
+  .cart-tab-arrow { font-size: 22px; line-height: 1; color: #aab3c2; }
+
+  .cart-tab b {
+    min-width: 22px;
+    padding: 2px 6px;
+    border-radius: 20px;
+    background: var(--green);
+    font-size: 12px;
+    text-align: center;
+  }
 }
