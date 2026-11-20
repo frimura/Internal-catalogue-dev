@@ -2007,3 +2007,30 @@ main {
 
 /* Cart action buttons before a customer is chosen: dimmed but clickable */
 #cartPanel .cart-actions button.needs-customer { opacity: .55; }
+/* =========================================================
+   DESKTOP: CATALOG LEFT, CART ALWAYS VISIBLE ON THE RIGHT
+   ========================================================= */
+@media (min-width: 1000px) {
+  /* leave room for the cart column */
+  body { padding-right: 440px; }
+
+  /* cart becomes a fixed side column under the header */
+  #cartPanel {
+    top: 68px;
+    bottom: 0;
+    width: 440px;
+    transform: none !important;
+    transition: none;
+    border-left: 1px solid var(--line);
+    box-shadow: none;
+  }
+
+  /* no dark overlay, no close button, no cart buttons needed */
+  #cartOverlay,
+  #closeCart,
+  .cart-top,
+  #navCart { display: none !important; }
+
+  /* bottom nav stops before the cart column */
+  .bottom-nav { right: 440px; }
+}
