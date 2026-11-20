@@ -2058,14 +2058,15 @@ main {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border: 0;
+       border: 1px solid var(--line);
+    border-right: 0;
     border-radius: 14px 0 0 14px;
-    background: #111827;
-    color: #fff;
-    box-shadow: -4px 0 14px rgba(20, 31, 52, .18);
+    background: #fff;
+    color: var(--ink);
+    box-shadow: -4px 0 14px rgba(20, 31, 52, .08);
     transition: right .22s ease, background .15s;
   }
-  .cart-tab:hover { background: #1f2937; }
+    .cart-tab-arrow { font-size: 22px; line-height: 1; color: var(--muted); }
   body.cart-collapsed .cart-tab { right: 0; }
 
   .cart-tab-icon { font-size: 20px; line-height: 1; }
