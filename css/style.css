@@ -2020,7 +2020,7 @@ main {
   body.cart-collapsed { padding-right: 0; }
 
   #cartPanel {
-    top: 68px;
+    top: 2px;
     bottom: 0;
     right: 0;
     width: 440px;
@@ -2079,5 +2079,20 @@ main {
     background: var(--green);
     font-size: 12px;
     text-align: center;
+  }
+}
+/* =========================================================
+   RESPONSIVE PRODUCT GRID (adapts to window size and zoom)
+   ========================================================= */
+@media (min-width: 650px) {
+  main { max-width: 1600px; }
+
+  .topbar {
+    padding-left: max(16px, calc((100% - 1600px) / 2));
+    padding-right: max(16px, calc((100% - 1600px) / 2));
+  }
+
+  .product-list {
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   }
 }
