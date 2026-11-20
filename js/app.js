@@ -2172,6 +2172,18 @@ async function copyOrder() {
    ========================================================= */
 
 function openCart() {
+  // Desktop: the cart is always visible, nothing to open
+  if (window.matchMedia('(min-width: 1000px)').matches) {
+    $('cartPanel').setAttribute('aria-hidden', 'false');
+    return;
+  }
+
+  activatePanelBackGuard();
+  $('cartOverlay').classList.remove('hidden');
+  $('cartPanel').classList.add('open');
+  $('cartPanel').setAttribute('aria-hidden', 'false');
+}
+   
    activatePanelBackGuard();
   $('cartOverlay').classList.remove('hidden');
   $('cartPanel').classList.add('open');
