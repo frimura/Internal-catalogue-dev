@@ -2186,12 +2186,6 @@ function openCart() {
   $('cartPanel').classList.add('open');
   $('cartPanel').setAttribute('aria-hidden', 'false');
 }
-   
-   activatePanelBackGuard();
-  $('cartOverlay').classList.remove('hidden');
-  $('cartPanel').classList.add('open');
-  $('cartPanel').setAttribute('aria-hidden', 'false');
-}
 
 function closeCart() {
   $('cartOverlay').classList.add('hidden');
