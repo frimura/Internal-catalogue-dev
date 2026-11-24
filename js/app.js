@@ -278,6 +278,9 @@ let cart = readStorage(CONFIG.cartKey, {});
 let settings = readStorage(CONFIG.settingsKey, {});
 let savedOrders = readStorage(CONFIG.savedOrdersKey, []);
 let requesterName = readStorage(CONFIG.identityKey, '');
+let savedOrdersTab = 'local';
+const SHIPPING_AMOUNT_KEY = 'centi_catalog_shipping_amount_v1';
+let shippingAmount = Math.max(0, Number(readStorage(SHIPPING_AMOUNT_KEY, 0)) || 0);
 
 let toastTimer;
 let searchTimer;
@@ -1529,8 +1532,16 @@ items.forEach(item => {
     fetchAndDisplayProductStock(item.sku);
   }
 });
+    const shippingInput = $('shippingAmount');
+  if (shippingInput && document.activeElement !== shippingInput) {
+    shippingInput.value = String(shippingAmount);
+  }
+
   $('cartTotal').textContent = money(
-    items.reduce((sum, item) => sum + item.price * item.qty, 0)
+    items.reduce(
+      (sum, item) => sum + item.price * item.qty,
+      items.length ? shippingAmount : 0
+    )
   );
 
    const hasItems = items.length > 0;
@@ -1620,9 +1631,10 @@ function saveCurrentOrder() {
     createdAt: new Date().toISOString(),
     requesterName,
     customerType: $('customerType').value,
-    orderLocation,
+        orderLocation,
+    shippingAmount,
     items: JSON.parse(JSON.stringify(items)),
-    total: items.reduce((sum, item) => sum + item.price * item.qty, 0)
+    total: items.reduce((sum, item) => sum + item.price * item.qty, shippingAmount)
   };
 
   if (existing >= 0) savedOrders.splice(existing, 1);
@@ -1634,6 +1646,10 @@ function saveCurrentOrder() {
 }
 
 function renderSavedOrders() {
+     if (savedOrdersTab === 'server') {
+    if (window.loadServerSavedOrders) void window.loadServerSavedOrders();
+    return;
+  }
   const host = $('savedOrdersList');
 
   $('savedOrdersSubtitle').textContent =
@@ -1660,6 +1676,7 @@ function renderSavedOrders() {
           ${order.items.length} different products ·
           ${money(order.total)}
         </small>
+       <small>Ongkir · ${money(order.shippingAmount || 0)}</small>
 
         <small>
           ${esc(order.requesterName || 'Unknown')} ·
@@ -1710,173 +1727,6 @@ function renderSavedOrders() {
   host.querySelectorAll('[data-delete-saved]').forEach(button => {
     button.onclick = () => deleteSavedOrder(button.dataset.deleteSaved);
   });
-host.querySelectorAll('[data-copy-invoice]').forEach(button => {
-  button.onclick = () => copySavedInvoice(button.dataset.copyInvoice);
-});
-}
-async function copySavedInvoice(id) {
-  const order = savedOrders.find(item => item.id === id);
-  if (!order) return;
-
-  const invoiceNumber =
-    order.invoiceNumber ||
-    'INV-' + order.id.replace('SAVED-', '');
-
-  const invoiceDate = new Date(order.createdAt)
-    .toLocaleDateString('id-ID', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  const width = 900;
-  const padding = 65;
-  const rowHeight = 78;
-  const headerHeight = 310;
-  const footerHeight = 190;
- const height = headerHeight + order.items.length * rowHeight + footerHeight + 180;
-
-  canvas.width = width;
-  canvas.height = height;
-
-  // Background
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
-
-  // Header
-  ctx.fillStyle = '#171717';
-  ctx.fillRect(0, 0, width, 220);
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 48px Arial';
-  ctx.fillText('CENTI STORE', padding, 90);
-
-  ctx.font = '24px Arial';
-  ctx.fillStyle = '#d1d5db';
-  ctx.fillText('INVOICE', padding, 145);
-
-  ctx.font = '20px Arial';
-  ctx.fillText(`Invoice: ${invoiceNumber}`, padding, 185);
-
-  ctx.textAlign = 'right';
-  ctx.fillText(invoiceDate, width - padding, 185);
-  ctx.textAlign = 'left';
-
-  // Customer
-  let y = 275;
-
-  ctx.fillStyle = '#777777';
-  ctx.font = 'bold 18px Arial';
-  ctx.fillText('CUSTOMER', padding, y);
-
-  y += 38;
-  ctx.fillStyle = '#171717';
-  ctx.font = 'bold 28px Arial';
-    ctx.fillText(String(order.name || order.customerType || '-'), padding, y);
-
-  // Items header
-  y += 65;
-  ctx.fillStyle = '#f3f4f6';
-  ctx.fillRect(padding, y - 30, width - padding * 2, 48);
-
-  ctx.fillStyle = '#555555';
-  ctx.font = 'bold 16px Arial';
-  ctx.fillText('ITEM', padding + 12, y);
-  ctx.textAlign = 'right';
-  ctx.fillText('QTY', 560, y);
-  ctx.fillText('PRICE', 710, y);
-  ctx.fillText('SUBTOTAL', width - padding - 12, y);
-  ctx.textAlign = 'left';
-
-  y += 48;
-
-  // Items
-  order.items.forEach((item, index) => {
-    const subtotal = Number(item.price) * Number(item.qty);
-
-    ctx.strokeStyle = '#e5e7eb';
-    ctx.beginPath();
-    ctx.moveTo(padding, y);
-    ctx.lineTo(width - padding, y);
-    ctx.stroke();
-
-    y += 28;
-
-    ctx.fillStyle = '#171717';
-    ctx.font = 'bold 17px Arial';
-
-    const productName = String(item.name || '');
-    ctx.fillText(
-      productName.length > 34
-        ? productName.slice(0, 31) + '...'
-        : productName,
-      padding + 12,
-      y
-    );
-
-    ctx.font = '14px Arial';
-    ctx.fillStyle = '#777777';
-    ctx.fillText(`SKU: ${item.sku || '-'}`, padding + 12, y + 23);
-
-    ctx.fillStyle = '#333333';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'right';
-    ctx.fillText(String(item.qty), 560, y);
-    ctx.fillText(money(item.price), 710, y);
-    ctx.fillText(money(subtotal), width - padding - 12, y);
-    ctx.textAlign = 'left';
-
-    y += rowHeight - 28;
-  });
-
-  // Grand total
-  y += 25;
-
-  ctx.strokeStyle = '#171717';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(padding, y);
-  ctx.lineTo(width - padding, y);
-  ctx.stroke();
-
-  y += 65;
-
-  ctx.fillStyle = '#777777';
-  ctx.font = 'bold 20px Arial';
-  ctx.fillText('GRAND TOTAL', padding, y);
-
-  ctx.fillStyle = '#171717';
-  ctx.font = 'bold 34px Arial';
-  ctx.textAlign = 'right';
-  ctx.fillText(money(order.total), width - padding, y);
-  ctx.textAlign = 'left';
-
-  // Footer
-  y += 90;
-  ctx.fillStyle = '#777777';
-  ctx.font = '18px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText('Centi STORE', width / 2, y);
-
-  try {
-    const blob = await new Promise(resolve =>
-      canvas.toBlob(resolve, 'image/png')
-    );
-
-    if (!blob) throw new Error('PNG generation failed');
-
-    await navigator.clipboard.write([
-      new ClipboardItem({ 'image/png': blob })
-    ]);
-
-    showToast('Invoice image copied. Paste with Ctrl + V');
-  } catch (error) {
-    console.error('Invoice image copy failed:', error);
-    showToast('Unable to copy invoice image. Check browser clipboard permissions.');
-  }
 }
 function loadSavedOrder(id) {
   const order = savedOrders.find(item => item.id === id);
@@ -1905,6 +1755,8 @@ function loadSavedOrder(id) {
 
    $('customerType').value = order.customerType || '';
   setOrderLocation(order.orderLocation || 'Pusat');
+     shippingAmount = Math.max(0, Number(order.shippingAmount) || 0);
+  writeStorage(SHIPPING_AMOUNT_KEY, shippingAmount);
      setCartNo(order.orderNo || String(order.invoiceNumber || '').replace(/\D/g, ''));
 
   saveCart();
@@ -1935,7 +1787,6 @@ function deleteSavedOrder(id) {
 
 function openSavedOrders() {
   activatePanelBackGuard();
-  renderSavedOrders();
 
   $('savedOrdersOverlay').classList.remove('hidden');
   $('savedOrdersPanel').classList.add('open');
@@ -1959,7 +1810,7 @@ function orderText() {
 
   const total = items.reduce(
     (sum, item) => sum + item.price * item.qty,
-    0
+    shippingAmount
   );
 
   const lines = [
@@ -1981,7 +1832,7 @@ function orderText() {
       `  Price: ${money(item.price)}`
     );
   }
-
+  lines.push('', `Ongkir: ${money(shippingAmount)}`);
   lines.push('', `Total : ${money(total)}`);
 
   return {
@@ -2418,7 +2269,28 @@ if ($('savedOrdersOverlay')) {
 if ($('saveCartOrder')) {
   $('saveCartOrder').onclick = saveCurrentOrder;
 }
+if ($('saveServerOrder')) {
+  $('saveServerOrder').onclick = () => {
+    if (window.saveCurrentOrderToServer) void window.saveCurrentOrderToServer();
+  };
+}
 
+function setSavedOrdersTab(tab) {
+  savedOrdersTab = tab === 'server' ? 'server' : 'local';
+  $('localOrdersTab')?.classList.toggle('active', savedOrdersTab === 'local');
+  $('serverOrdersTab')?.classList.toggle('active', savedOrdersTab === 'server');
+  $('localOrdersTab')?.setAttribute('aria-selected', String(savedOrdersTab === 'local'));
+  $('serverOrdersTab')?.setAttribute('aria-selected', String(savedOrdersTab === 'server'));
+  renderSavedOrders();
+}
+
+$('localOrdersTab')?.addEventListener('click', () => setSavedOrdersTab('local'));
+$('serverOrdersTab')?.addEventListener('click', () => setSavedOrdersTab('server'));
+$('shippingAmount')?.addEventListener('input', event => {
+  shippingAmount = Math.max(0, Math.floor(Number(event.target.value) || 0));
+  writeStorage(SHIPPING_AMOUNT_KEY, shippingAmount);
+  renderCart();
+});
 if ($('navImport')) {
   $('navImport').onclick = openImportOrder;
 }
