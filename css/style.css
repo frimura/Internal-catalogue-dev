@@ -505,25 +505,7 @@ main {
 }
 
 .total-line strong { font-size: 22px; }
-.shipping-field {
-  margin: 0 0 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 13px;
-}
 
-.shipping-field input {
-  width: 150px;
-  min-height: 38px;
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--ink);
-  text-align: right;
-}
 .primary-button,
 .secondary-button,
 .empty-cart-button {
@@ -923,27 +905,7 @@ main {
   padding: 14px 0;
   border-bottom: 1px solid var(--line);
 }
-.saved-orders-tabs {
-  padding: 10px 14px 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
 
-.saved-orders-tabs button {
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #fff;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.saved-orders-tabs button.active {
-  border-color: var(--green);
-  background: #e8f5ef;
-  color: var(--green-dark);
-}
 .saved-order-info {
   display: flex;
   flex-direction: column;
@@ -1547,10 +1509,6 @@ main {
 #cartPanel .save-print-pair #saveCartOrder {
   grid-column: 1 !important;
   grid-row: 1 !important;
-}
-#cartPanel .save-print-pair #saveServerOrder {
-  grid-column: 1 / span 2 !important;
-  grid-row: 2 !important;
 }
 #cartPanel .save-print-pair #printNotaCart {
   grid-column: 2 !important;
