@@ -186,8 +186,14 @@
     <div class="cart-footer">
     <div class="total-line">
   <span>Total</span>
-  <strong id="cartTotal">Rp0</strong>
+ <strong id="cartTotal">Rp0</strong>
 </div>
+
+<label class="shipping-field" for="shippingAmount">
+  <span>Ongkir</span>
+  <input id="shippingAmount" type="number" min="0" step="1000"
+         inputmode="numeric" value="0">
+</label>
       
 
 <div class="cart-routing-grid">
@@ -241,7 +247,11 @@
           <path d="M17 21v-8H7v8"/>
           <path d="M7 3v5h8"/>
         </svg>
-        Save Order
+                Save Order
+      </button>
+
+      <button id="saveServerOrder" class="action-save" type="button">
+        Save to Server
       </button>
 
       <button id="printNotaCart" type="button">
@@ -398,6 +408,12 @@
       <button id="closeSavedOrders" class="icon-button" type="button">×</button>
     </div>
 
+        <div class="saved-orders-tabs" role="tablist" aria-label="Saved order storage">
+      <button id="localOrdersTab" type="button" class="active"
+              role="tab" aria-selected="true">Local</button>
+      <button id="serverOrdersTab" type="button"
+              role="tab" aria-selected="false">Server</button>
+    </div>
     <div id="savedOrdersList" class="cart-items"></div>
   </aside>
   <!-- INBOX (separate from saved orders) -->
