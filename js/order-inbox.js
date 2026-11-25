@@ -46,6 +46,10 @@
       moveConfirm:
         'Move this order to the server? It will be removed from this device.',
       moved: 'Order moved to server',
+      editedBy: 'Edited by',
+      payment: 'Payment',
+      printSaved: 'Saved to server',
+      printNotSaved: 'Not saved to server',
       existsConfirm:
         'This order is already on the server. Replace it with this version?',
       existsBlocked: 'Already on the server and owned by',
@@ -92,6 +96,10 @@
       moveConfirm:
         'Pindahkan pesanan ini ke server? Pesanan akan dihapus dari perangkat ini.',
       moved: 'Pesanan dipindahkan ke server',
+      editedBy: 'Diedit oleh',
+      payment: 'Pembayaran',
+      printSaved: 'Tersimpan di server',
+      printNotSaved: 'Tidak tersimpan di server',
       existsConfirm:
         'Pesanan ini sudah ada di server. Ganti dengan versi ini?',
       existsBlocked: 'Sudah ada di server dan milik',
@@ -287,7 +295,56 @@
       return true;
     });
   }
+function stamp(iso) {
+    const date = new Date(iso);
+    return Number.isNaN(date.getTime()) ? '' : date.toLocaleString();
+  }
 
+  function editedLineHtml(order) {
+    if (!order.last_edited_by) return '';
+
+    return `<small>${esc(words().editedBy)} ${esc(order.last_edited_by)} · ` +
+      `${esc(stamp(order.last_edited_at))}</small>`;
+  }
+
+  // INV / NOT / PAID chips. An invoice method is only a preference.
+  function serverTagsHtml(order) {
+    const tags = [];
+
+    if (order.inv_at) {
+      const preferred = order.payment && !order.nota_at
+        ? ` · ${order.payment}` : '';
+      const tip = `Invoice: ${order.inv_by || ''} ${stamp(order.inv_at)}`;
+      tags.push(
+        `<em class="doc-tag inv" title="${esc(tip)}">INV${esc(preferred)}</em>`
+      );
+    }
+
+    if (order.nota_at) {
+      const tip = `Nota: ${order.nota_by || ''} ${stamp(order.nota_at)}`;
+      tags.push(`<em class="doc-tag not" title="${esc(tip)}">NOT</em>`);
+
+      if (order.payment) {
+        tags.push(
+          `<em class="doc-tag paid">PAID · ${esc(order.payment)}</em>`
+        );
+      }
+    }
+
+    return tags.length ? `<div class="doc-tags">${tags.join('')}</div>` : '';
+  }
+
+  // Extra lines for the eye panel
+  function serverExtraMeta(order) {
+    return [
+      order.last_edited_by
+        ? `${words().editedBy} ${order.last_edited_by} ${stamp(order.last_edited_at)}`
+        : '',
+      order.inv_by ? `Invoice: ${order.inv_by} ${stamp(order.inv_at)}` : '',
+      order.nota_by ? `Nota: ${order.nota_by} ${stamp(order.nota_at)}` : '',
+      order.payment ? `${words().payment}: ${order.payment}` : ''
+    ].filter(Boolean);
+  }
  const EYE_ICON =
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" ' +
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
@@ -343,6 +400,8 @@
               ${esc(money(order.total))}${esc(ongkir)}
             </small>
             <small>${esc(route)} · ${esc(date)}</small>
+            ${editedLineHtml(order)}
+            ${serverTagsHtml(order)}
           </div>
 
           <div class="server-card-actions">
@@ -381,6 +440,7 @@
       shipping: Number(order.shipping) || 0,
       orderLocation: order.order_location,
       customerType: order.customer_type,
+      extraMeta: serverExtraMeta(order),
       requesterName: order.recipient_name
         ? `${order.sender_name} → ${order.recipient_name}`
         : order.sender_name
@@ -855,6 +915,56 @@
     }
   }
 
+ /* ---------- save every printed / WhatsApp nota or invoice ---------- */
+
+  // Called by the print popup. Never blocks printing.
+  async function saveOrderToServer(base, details) {
+    try {
+      if (!REQUESTER_NAMES.includes(requesterName)) return;
+      if (!(settings.inboxPin || '').trim()) return;
+
+      const customerType = details.customerType || base.customerType || '';
+      const digits = String(base.invoiceNumber || '').replace(/\D/g, '');
+
+      if (!customerType || !digits) {
+        showToast(words().printNotSaved);
+        return;
+      }
+
+      await callApi({
+        action: 'print',
+        docType: details.docType,
+        payment: details.payment || '',
+        order: {
+          orderNo: `CAT-${digits}`,
+          customerType,
+          orderLocation: base.orderLocation || orderLocation,
+          customerName: details.name || '',
+          shipping: Number(base.shipping) || 0,
+          items: (base.items || []).map(item => ({
+            sku: item.sku,
+            name: item.name,
+            price: Number(item.price) || 0,
+            qty: Number(item.qty) || 0,
+            image: item.image || ''
+          }))
+        }
+      });
+
+      showToast(words().printSaved);
+
+      if (
+        activeTab === 'server' &&
+        $('savedOrdersPanel')?.classList.contains('open')
+      ) {
+        void loadServerOrders();
+      }
+    } catch (error) {
+      showToast(`${words().printNotSaved}: ${error.message}`);
+    }
+  }
+
+  window.saveOrderToServer = saveOrderToServer;
   /* ---------- inbox polling: badge + incoming-order popup ---------- */
 
   async function pollInbox() {
