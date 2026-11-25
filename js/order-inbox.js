@@ -50,6 +50,7 @@
       payment: 'Payment',
       printSaved: 'Saved to server',
       printNotSaved: 'Not saved to server',
+      history: 'History',
       existsConfirm:
         'This order is already on the server. Replace it with this version?',
       existsBlocked: 'Already on the server and owned by',
@@ -100,6 +101,7 @@
       payment: 'Pembayaran',
       printSaved: 'Tersimpan di server',
       printNotSaved: 'Tidak tersimpan di server',
+      history: 'Riwayat',
       existsConfirm:
         'Pesanan ini sudah ada di server. Ganti dengan versi ini?',
       existsBlocked: 'Sudah ada di server dan milik',
@@ -333,7 +335,56 @@ function stamp(iso) {
 
     return tags.length ? `<div class="doc-tags">${tags.join('')}</div>` : '';
   }
+const EVENT_LABELS = {
+    en: {
+      created: 'created it', edited: 'edited it', sent: 'sent it to',
+      invoice: 'sent the invoice', nota: 'sent the nota',
+      done: 'marked it done', reopened: 'reopened it'
+    },
+    id: {
+      created: 'membuat', edited: 'mengedit', sent: 'mengirim ke',
+      invoice: 'mengirim invoice', nota: 'mengirim nota',
+      done: 'menandai selesai', reopened: 'membuka lagi'
+    }
+  };
 
+  function historyLine(event) {
+    const labels = EVENT_LABELS[currentLanguage === 'id' ? 'id' : 'en'];
+    let text = labels[event.event] || event.event;
+
+    if (event.event === 'sent' && event.target) text += ` ${event.target}`;
+    if (event.detail && event.detail.payment) {
+      text += ` (${event.detail.payment})`;
+    }
+
+    return `<li><strong>${esc(event.actor)}</strong> ${esc(text)}` +
+      `<small>${esc(stamp(event.created_at))}</small></li>`;
+  }
+
+  // Fills the History section of the eye panel (server orders only)
+  async function loadOrderHistory(id) {
+    const box = $('viewOrderHistory');
+    if (!box) return;
+
+    box.dataset.orderId = id;
+
+    try {
+      const result = await callApi({ action: 'history', id });
+
+      // A newer order was opened meanwhile, or the panel was closed
+      if (box.dataset.orderId !== id) return;
+
+      const events = (result.events || []).slice().reverse();   // newest first
+
+      box.hidden = !events.length;
+      box.innerHTML = events.length
+        ? `<details><summary>${esc(words().history)} (${events.length})</summary>` +
+          `<ul class="history-list">${events.map(historyLine).join('')}</ul></details>`
+        : '';
+    } catch (error) {
+      console.warn('History failed:', error);
+    }
+  }
   // Extra lines for the eye panel
   function serverExtraMeta(order) {
     return [
@@ -431,6 +482,8 @@ function stamp(iso) {
   function viewServerOrder(id) {
     const order = serverOrders.find(item => item.id === id);
     if (!order || typeof window.openViewOrder !== 'function') return;
+
+    setTimeout(() => void loadOrderHistory(order.id), 0);
 
     window.openViewOrder({
       invoiceNumber: order.order_no,
