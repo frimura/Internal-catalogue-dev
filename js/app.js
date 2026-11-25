@@ -2746,7 +2746,14 @@ initializeApp();
         </div>`;
     }).join('') || '<div class="empty"><strong>This order is empty</strong></div>';
 
-    $('viewOrderTotal').textContent = money(order.total ?? total);
+   $('viewOrderTotal').textContent = money(order.total ?? total);
+
+    const historyBox = $('viewOrderHistory');
+    if (historyBox) {
+      historyBox.hidden = true;
+      historyBox.innerHTML = '';
+      historyBox.dataset.orderId = '';
+    }
         $('viewOrderMeta').innerHTML = [order.orderLocation, order.customerType, order.requesterName,
       Number(order.shipping) > 0 ? 'Ongkir ' + money(order.shipping) : '',
       ...(order.extraMeta || [])]
