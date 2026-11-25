@@ -287,7 +287,7 @@ main {
   left: 0;
   z-index: 6;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border-top: 1px solid var(--line);
   background: var(--white);
 }
@@ -2098,3 +2098,240 @@ main {
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   }
 }
+/* =========================================================
+   SAVED ORDERS: LOCAL / SERVER TABS
+   ========================================================= */
+.saved-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 12px 16px 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #f3f5f8;
+}
+
+.saved-tab {
+  min-height: 40px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.saved-tab.is-active {
+  border-color: #dce8e2;
+  background: #fff;
+  color: var(--green-dark);
+  box-shadow: 0 1px 4px rgba(20, 31, 52, .09);
+}
+
+.saved-tab b {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 20px;
+  background: #e8f5ef;
+  color: var(--green);
+  font-size: 11px;
+  text-align: center;
+}
+.saved-tab b[hidden] { display: none; }
+
+/* Badge on the bottom-nav Saved Orders button */
+#savedOrdersTop { position: relative; }
+
+#savedOrdersBadge {
+  position: absolute;
+  top: 5px;
+  left: calc(50% + 5px);
+  z-index: 2;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+#savedOrdersBadge[hidden] { display: none; }
+
+/* Server pane */
+#serverOrdersPane { padding-top: 12px; }
+
+.server-toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.server-toolbar select {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.server-toolbar button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.server-toolbar .hide-done {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.server-status {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.shared-order-card.is-done { opacity: .78; }
+
+.shared-order-date {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.shared-order-ship {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.order-status-badge {
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.order-status-badge.open { background: #fff4e0; color: #b45309; }
+.order-status-badge.done { background: #e8f5ef; color: var(--green-dark); }
+
+.shared-order-actions.server-actions {
+  display: flex;
+  flex-wrap: wrap;
+}
+.shared-order-actions.server-actions button {
+  flex: 1 1 90px;
+}
+.shared-order-actions button.danger {
+  border-color: #f1c4c4;
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.server-more {
+  width: 100%;
+  min-height: 42px;
+  margin: 6px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+/* =========================================================
+   ONGKIR (SHIPPING) ROW IN THE CART
+   ========================================================= */
+#cartPanel .cart-footer > .shipping-line {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.shipping-line label {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.shipping-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+}
+.shipping-field:focus-within {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 132, 91, .12);
+}
+.shipping-field span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+.shipping-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  text-align: right;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.shipping-line > button {
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.shipping-line > button:active { background: var(--bg); }
+
+#cartPanel .cart-footer > .cart-breakdown {
+  grid-column: 1 / -1;
+  margin: -2px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+.cart-breakdown[hidden] { display: none !important; }
