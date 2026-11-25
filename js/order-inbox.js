@@ -46,6 +46,9 @@
       moveConfirm:
         'Move this order to the server? It will be removed from this device.',
       moved: 'Order moved to server',
+      existsConfirm:
+        'This order is already on the server. Replace it with this version?',
+      existsBlocked: 'Already on the server and owned by',
       deleteConfirm: 'Delete this order from the server:',
       deleted: 'Order deleted',
       changed: 'Order updated',
@@ -89,6 +92,9 @@
       moveConfirm:
         'Pindahkan pesanan ini ke server? Pesanan akan dihapus dari perangkat ini.',
       moved: 'Pesanan dipindahkan ke server',
+      existsConfirm:
+        'Pesanan ini sudah ada di server. Ganti dengan versi ini?',
+      existsBlocked: 'Sudah ada di server dan milik',
       deleteConfirm: 'Hapus pesanan ini dari server:',
       deleted: 'Pesanan dihapus',
       changed: 'Pesanan diperbarui',
@@ -167,7 +173,13 @@
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok || !result.ok) {
-      throw new Error(result.error || `${words().failed} (${response.status})`);
+      const error = new Error(
+        result.error || `${words().failed} (${response.status})`
+      );
+      error.code = result.code;
+      error.existing = result.existing;
+      error.canReplace = result.canReplace;
+      throw error;
     }
 
     return result;
@@ -493,7 +505,7 @@
 
   /* ---------- move a local saved order to the server ---------- */
 
-  async function moveToServer(id) {
+  async function moveToServer(id, replace = false) {
     const order = savedOrders.find(item => item.id === id);
     if (!order) return;
 
@@ -509,7 +521,7 @@
       return;
     }
 
-    if (!confirm(`${words().moveConfirm}\n\n${savedTitle(order)}`)) return;
+    if (!replace && !confirm(`${words().moveConfirm}\n\n${savedTitle(order)}`)) return;
 
     const number = String(
       order.orderNo || order.invoiceNumber || order.id || ''
@@ -518,6 +530,7 @@
     try {
       await callApi({
         action: 'move',
+        replace,
         order: {
           orderNo: `CAT-${number}`,
           customerType: order.customerType,
@@ -534,6 +547,30 @@
         }
       });
     } catch (error) {
+      // Already on the server: ask before replacing it
+      if (error.code === 'exists') {
+        const info = error.existing || {};
+
+        if (!error.canReplace) {
+          showToast(`${words().existsBlocked} ${info.sender_name || ''}`);
+          return;
+        }
+
+        const when = info.created_at
+          ? new Date(info.created_at).toLocaleString()
+          : '';
+
+        if (confirm(
+          `${words().existsConfirm}\n\n` +
+          `${savedTitle(order)}\n` +
+          `${info.sender_name || ''} · ${when}\n` +
+          `${info.item_count || 0} ${t('differentProducts')} · ${money(info.total)}`
+        )) {
+          await moveToServer(id, true);
+        }
+        return;
+      }
+
       // Nothing was removed locally, so the order is still safe on this device.
       showToast(`${words().failed}: ${error.message}`);
       return;
