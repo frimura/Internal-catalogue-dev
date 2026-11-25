@@ -1303,6 +1303,8 @@ function saveCart() {
   if (!cartValues().length) {
     setCartNo('');
     shippingCost = 0;
+    cartSource = null;
+    try { localStorage.removeItem(CART_SOURCE_KEY); } catch (e) {}
     try { localStorage.removeItem(SHIPPING_KEY); } catch (e) {}
   }
   updateCartBadge();
@@ -1347,6 +1349,7 @@ function markNoUsed(channel) {
     keys.slice(0, keys.length - 500).forEach(key => delete usedNos[key]);
   }
   writeStorage(USED_NOS_KEY, usedNos);
+  renderCartInfo();
 }
 
 function askResendOrNew(no) {
@@ -1485,7 +1488,60 @@ function bindShippingEvents() {
     button.addEventListener('click', () => setShipping(Number(button.dataset.ship)));
   });
 }
+/* ---------- cart info strip: which invoice, where the cart came from ---------- */
+const CART_SOURCE_KEY = 'centi_catalog_cart_source_v1';
+let cartSource = readStorage(CART_SOURCE_KEY, null);
 
+function setCartSource(source) {
+  cartSource = source || null;
+
+  if (source) writeStorage(CART_SOURCE_KEY, source);
+  else {
+    try { localStorage.removeItem(CART_SOURCE_KEY); } catch (e) {}
+  }
+
+  renderCartInfo();
+}
+
+function renderCartInfo() {
+  const box = $('cartInfo');
+  if (!box) return;
+
+  if (!cartValues().length) {
+    box.hidden = true;
+    box.innerHTML = '';
+    return;
+  }
+
+  const id = currentLanguage === 'id';
+  const no = getCartNo();
+  const used = usedNos[no] && typeof usedNos[no] === 'object' ? usedNos[no] : {};
+  const src = cartSource || { type: 'new' };
+
+  let origin;
+  if (src.type === 'server') {
+    origin = (id ? 'Dari server: ' : 'From server: ') + (src.from || '?') +
+      (src.to ? ' → ' + src.to : '');
+  } else if (src.type === 'local') {
+    origin = id ? 'Dari pesanan tersimpan (lokal)' : 'From saved order (local)';
+  } else if (src.type === 'import') {
+    origin = id ? 'Diimpor dari teks' : 'Imported from text';
+  } else {
+    origin = id ? 'Keranjang baru' : 'New cart';
+  }
+
+  const chips = [];
+  if (savedOrders.some(order => order.orderNo === no)) {
+    chips.push(id ? 'Tersimpan lokal' : 'Saved locally');
+  }
+  if (used.telegram) chips.push(id ? 'Terkirim ke Telegram' : 'Sent to Telegram');
+  if (used.salesman) chips.push(id ? 'Terkirim ke sales' : 'Sent to salesman');
+
+  box.hidden = false;
+  box.innerHTML =
+    `<strong>INV-${esc(no)}</strong><span>${esc(origin)}</span>` +
+    chips.map(chip => `<em>${esc(chip)}</em>`).join('');
+}
 function setOrderLocation(location) {
   if (!['Pusat', 'Cabang Solo'].includes(location)) return;
 
@@ -1602,6 +1658,7 @@ items.forEach(item => {
 
    updateTotals();
 
+  renderCartInfo();
   const hasItems = items.length > 0;
 
   // Keep the close button usable so the customer can close the cart.
@@ -1700,6 +1757,7 @@ function saveCurrentOrder() {
 
   writeStorage(CONFIG.savedOrdersKey, savedOrders);
   renderSavedOrders();
+  renderCartInfo();
   showToast(`${order.invoiceNumber} saved`);
 }
 
@@ -1979,6 +2037,7 @@ function loadSavedOrder(id) {
   setOrderLocation(order.orderLocation || 'Pusat');
      setCartNo(order.orderNo || String(order.invoiceNumber || '').replace(/\D/g, ''));
   setShipping(order.shipping || 0);
+  setCartSource({ type: 'local' });
 
   saveCart();
 
@@ -2233,6 +2292,7 @@ function importOrderFromText() {
   setCartNo(noMatch ? noMatch[1] : '');
   const shipMatch = text.match(/^Ongkir\s*:\s*(.+)$/im);
   setShipping(shipMatch ? Number(shipMatch[1].replace(/[^\d]/g, '')) || 0 : 0);
+  setCartSource({ type: 'import' });
   saveCart();
 
   closeImportOrder();
