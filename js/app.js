@@ -2748,7 +2748,8 @@ initializeApp();
 
     $('viewOrderTotal').textContent = money(order.total ?? total);
         $('viewOrderMeta').innerHTML = [order.orderLocation, order.customerType, order.requesterName,
-      Number(order.shipping) > 0 ? 'Ongkir ' + money(order.shipping) : '']
+      Number(order.shipping) > 0 ? 'Ongkir ' + money(order.shipping) : '',
+      ...(order.extraMeta || [])]
       .filter(Boolean).map(esc).join(' · ');
         history.pushState({ centiView: true }, '', location.href);
     window.__viewEntry = true;
@@ -2869,7 +2870,7 @@ initializeApp();
   /* ---------- popup: name + payment method ---------- */
      function askDetails(defaultType, defaultDoc) {
     return new Promise(resolve => {
-      let payment = 'Cash';
+      let payment = defaultDoc === 'Invoice' ? '' : 'Cash';
              let docType = defaultDoc || 'Nota';
 
       const overlay = document.createElement('div');
@@ -2963,17 +2964,20 @@ initializeApp();
           b.style.borderColor = on ? '#16845b' : '#e7eaf0';
         });
         const isNota = docType === 'Nota';
-        payLabel.style.display = isNota ? '' : 'none';
-        payGrid.style.display = isNota ? 'grid' : 'none';
+        payLabel.style.display = '';
+        payLabel.textContent = isNota ? 'Pembayaran' : 'Metode pembayaran (opsional)';
+        payGrid.style.display = 'grid';
       };
 
       docButtons.forEach(b => b.addEventListener('click', () => {
         docType = b.dataset.doc;
+        payment = docType === 'Nota' ? 'Cash' : '';
+        paint();
         paintDoc();
       }));
       paintDoc();
       payButtons.forEach(b => b.addEventListener('click', () => {
-        payment = b.dataset.pay;
+        payment = docType === 'Invoice' && payment === b.dataset.pay ? '' : b.dataset.pay;
         paint();
       }));
       paint();
@@ -3370,6 +3374,7 @@ initializeApp();
         customerType: details.customerType,
         docType: details.docType
       };
+      if (window.saveOrderToServer) window.saveOrderToServer(merged, details);
       if (details.action === 'whatsapp') await sendWhatsApp(pages, merged);
       else await printPages(pages, merged);
     } catch (error) {
