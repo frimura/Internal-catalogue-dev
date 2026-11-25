@@ -34,6 +34,7 @@
       markDone: 'Mark done',
       reopen: 'Reopen',
       remove: 'Delete',
+      view: 'View order',
       done: 'Done',
       open: 'Open',
       unassigned: 'no recipient',
@@ -76,6 +77,7 @@
       markDone: 'Tandai selesai',
       reopen: 'Buka lagi',
       remove: 'Hapus',
+      view: 'Lihat pesanan',
       done: 'Selesai',
       open: 'Terbuka',
       unassigned: 'tanpa penerima',
@@ -274,6 +276,12 @@
     });
   }
 
+ const EYE_ICON =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" ' +
+    'stroke="currentColor" stroke-width="2" stroke-linecap="round" ' +
+    'stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/>' +
+    '<circle cx="12" cy="12" r="3"/></svg>';
+
   function renderServerOrders() {
     const host = $('serverOrdersList');
     if (!host) return;
@@ -295,65 +303,52 @@
         : created.toLocaleString();
 
       const isDone = order.status === 'completed';
+      const count = (order.items || []).length;
 
       const route = order.recipient_name
         ? `${order.sender_name} → ${order.recipient_name}`
-        : `${order.sender_name} · ${w.unassigned}`;
+        : order.sender_name;
 
-      const itemRows = (order.items || []).map(item => `
-        <li>
-          <strong>${esc(item.qty)} × ${esc(item.name)}</strong>
-          <small>${esc(item.sku)}</small>
-        </li>
-      `).join('');
-
-      const shippingRow = Number(order.shipping) > 0
-        ? `<div class="shared-order-ship">${esc(w.ongkir)}:
-             <strong>${esc(money(order.shipping))}</strong></div>`
+      const ongkir = Number(order.shipping) > 0
+        ? ` · ${w.ongkir} ${money(order.shipping)}`
         : '';
 
-      const customerLine = [
-        order.customer_name,
-        order.customer_type,
-        order.order_location
-      ].filter(Boolean).map(esc).join(' · ');
+      const id = esc(order.id);
 
       return `
-        <article class="shared-order-card${isDone ? ' is-done' : ''}">
-          <div class="shared-order-top">
-            <strong>${esc(order.order_no)}</strong>
-            <span class="order-status-badge ${isDone ? 'done' : 'open'}">
-              ${esc(isDone ? w.done : w.open)}
-            </span>
-          </div>
-          <small class="shared-order-date">${esc(date)}</small>
-
-          <p>${esc(route)}</p>
-          <p>${customerLine}</p>
-
-          <ul class="shared-order-items">${itemRows}</ul>
-
-          ${shippingRow}
-
-          <div class="shared-order-total">
-            ${esc(w.total)}: <strong>${esc(money(order.total))}</strong>
+        <div class="saved-order-card server-card${isDone ? ' is-done' : ''}">
+          <div class="saved-order-info">
+            <div class="server-card-title">
+              <strong>${esc(order.order_no)}</strong>
+              <span class="order-status-badge ${isDone ? 'done' : 'open'}">
+                ${esc(isDone ? w.done : w.open)}
+              </span>
+            </div>
+            ${order.customer_name
+              ? `<small>${esc(order.customer_name)}</small>` : ''}
+            <small>
+              ${count} ${esc(t('differentProducts'))} ·
+              ${esc(money(order.total))}${esc(ongkir)}
+            </small>
+            <small>${esc(route)} · ${esc(date)}</small>
           </div>
 
-          <div class="shared-order-actions server-actions">
-            <button type="button" data-server-load="${esc(order.id)}">
-              ${esc(w.load)}
-            </button>
+          <div class="server-card-actions">
+            <button type="button" class="primary-button"
+                    data-server-load="${id}">${esc(w.load)}</button>
             ${canChangeStatus(order) ? `
-              <button type="button" data-server-toggle="${esc(order.id)}">
+              <button type="button" data-server-toggle="${id}">
                 ${esc(isDone ? w.reopen : w.markDone)}
               </button>` : ''}
             ${canManage(order) ? `
               <button type="button" class="danger"
-                      data-server-delete="${esc(order.id)}">
-                ${esc(w.remove)}
-              </button>` : ''}
+                      data-server-delete="${id}">${esc(w.remove)}</button>` : ''}
+            <button type="button" class="view-server" data-server-view="${id}"
+                    aria-label="${esc(w.view)}" title="${esc(w.view)}">
+              ${EYE_ICON}
+            </button>
           </div>
-        </article>
+        </div>
       `;
     }).join('') + (serverHasMore ? `
       <button type="button" class="server-more" data-server-more>
@@ -361,6 +356,24 @@
       </button>` : '');
   }
 
+  // Opens the same order panel the Local tab uses (the eye button)
+  function viewServerOrder(id) {
+    const order = serverOrders.find(item => item.id === id);
+    if (!order || typeof window.openViewOrder !== 'function') return;
+
+    window.openViewOrder({
+      invoiceNumber: order.order_no,
+      name: order.customer_name || '',
+      items: order.items || [],
+      total: Number(order.total) || 0,
+      shipping: Number(order.shipping) || 0,
+      orderLocation: order.order_location,
+      customerType: order.customer_type,
+      requesterName: order.recipient_name
+        ? `${order.sender_name} → ${order.recipient_name}`
+        : order.sender_name
+    });
+  }
   async function loadServerOrders() {
     const problem = notReadyMessage();
 
@@ -593,6 +606,12 @@
       if (target.closest('[data-server-more]')) {
         serverLimit += PAGE_SIZE;
         void loadServerOrders();
+        return;
+      }
+
+      const viewButton = target.closest('[data-server-view]');
+      if (viewButton) {
+        viewServerOrder(viewButton.dataset.serverView);
         return;
       }
 
