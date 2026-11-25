@@ -495,6 +495,11 @@
     // Keep the original order number (CAT-123 -> 123)
     setCartNo(String(order.order_no || '').replace(/\D/g, ''));
     setShipping(Number(order.shipping) || 0);
+    setCartSource({
+      type: 'server',
+      from: order.sender_name,
+      to: order.recipient_name || ''
+    });
     saveCart();
 
     closeQuantitySelector();
