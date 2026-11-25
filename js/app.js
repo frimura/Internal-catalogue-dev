@@ -1758,7 +1758,8 @@ function saveCurrentOrder() {
   writeStorage(CONFIG.savedOrdersKey, savedOrders);
   renderSavedOrders();
   renderCartInfo();
-  showToast(`${order.invoiceNumber} saved`);
+    showToast(`${order.invoiceNumber} saved`);
+  if (window.syncSavedToServer) window.syncSavedToServer(order);
 }
 
 function renderSavedOrders() {
