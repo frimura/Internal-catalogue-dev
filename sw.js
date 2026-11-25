@@ -1,5 +1,5 @@
 
-const CACHE = 'centi-catalog-shell-v34';
+const CACHE = 'centi-catalog-shell-v35';
 
 const FILES = [
   './',
