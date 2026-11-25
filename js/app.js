@@ -1300,7 +1300,11 @@ function addToCart(sku, quantity = 1) {
 
 function saveCart() {
   writeStorage(CONFIG.cartKey, cart);
-  if (!cartValues().length) setCartNo('');
+  if (!cartValues().length) {
+    setCartNo('');
+    shippingCost = 0;
+    try { localStorage.removeItem(SHIPPING_KEY); } catch (e) {}
+  }
   updateCartBadge();
   renderCart();
 }
@@ -1419,6 +1423,69 @@ function savedTitle(order) {
 function cartValues() {
   return Object.values(cart).filter(item => item.qty > 0);
 }
+/* ---------- Ongkir (shipping) ---------- */
+const SHIPPING_KEY = 'centi_catalog_shipping_v1';
+let shippingCost = Math.max(
+  0,
+  Math.round(Number(localStorage.getItem(SHIPPING_KEY)) || 0)
+);
+
+function cartSubtotal() {
+  return cartValues().reduce((sum, item) => sum + item.price * item.qty, 0);
+}
+
+// Shipping only counts while the cart has items
+function cartShipping() {
+  return cartValues().length ? shippingCost : 0;
+}
+
+function cartGrandTotal() {
+  return cartSubtotal() + cartShipping();
+}
+
+function updateTotals() {
+  $('cartTotal').textContent = money(cartGrandTotal());
+
+  const breakdown = $('cartBreakdown');
+  if (breakdown) {
+    const shipping = cartShipping();
+    breakdown.hidden = shipping <= 0;
+    breakdown.textContent = shipping > 0
+      ? `${t('subtotal')} ${money(cartSubtotal())} + Ongkir ${money(shipping)}`
+      : '';
+  }
+
+  const input = $('shippingInput');
+  if (input && document.activeElement !== input) {
+    input.value = shippingCost ? shippingCost.toLocaleString('id-ID') : '';
+  }
+}
+
+function setShipping(value) {
+  shippingCost = Math.min(Math.max(0, Math.round(Number(value) || 0)), 100000000);
+  try { localStorage.setItem(SHIPPING_KEY, String(shippingCost)); } catch (e) {}
+  updateTotals();
+}
+
+function bindShippingEvents() {
+  const input = $('shippingInput');
+  if (!input) return;
+
+  input.addEventListener('input', () => {
+    const digits = input.value.replace(/\D/g, '');
+    shippingCost = Math.min(Number(digits) || 0, 100000000);
+    try { localStorage.setItem(SHIPPING_KEY, String(shippingCost)); } catch (e) {}
+    updateTotals();
+  });
+
+  input.addEventListener('focus', () => input.select());
+  input.addEventListener('blur', () => setShipping(shippingCost));
+
+  document.querySelectorAll('[data-ship]').forEach(button => {
+    button.addEventListener('click', () => setShipping(Number(button.dataset.ship)));
+  });
+}
+
 function setOrderLocation(location) {
   if (!['Pusat', 'Cabang Solo'].includes(location)) return;
 
@@ -1533,7 +1600,9 @@ items.forEach(item => {
     items.reduce((sum, item) => sum + item.price * item.qty, 0)
   );
 
-   const hasItems = items.length > 0;
+   updateTotals();
+
+  const hasItems = items.length > 0;
 
   // Keep the close button usable so the customer can close the cart.
   document.querySelectorAll('#cartPanel button:not(#closeCart)').forEach(button => {
@@ -1622,7 +1691,8 @@ function saveCurrentOrder() {
     customerType: $('customerType').value,
     orderLocation,
     items: JSON.parse(JSON.stringify(items)),
-    total: items.reduce((sum, item) => sum + item.price * item.qty, 0)
+    shipping: cartShipping(),
+    total: cartGrandTotal()
   };
 
   if (existing >= 0) savedOrders.splice(existing, 1);
@@ -1638,6 +1708,8 @@ function renderSavedOrders() {
 
   $('savedOrdersSubtitle').textContent =
     `${savedOrders.length} saved orders`;
+
+  if ($('tabLocalCount')) $('tabLocalCount').textContent = savedOrders.length;
 
   if (!savedOrders.length) {
     host.innerHTML = `
@@ -1681,8 +1753,8 @@ function renderSavedOrders() {
         </button>
 <button type="button"
         class="secondary-button"
-        data-copy-invoice="${esc(order.id)}">
-  Copy Invoice
+        data-move-server="${esc(order.id)}">
+  ☁ To server
 </button>
 <button type="button" class="print-saved" data-print-saved="${esc(order.id)}">
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1906,6 +1978,7 @@ function loadSavedOrder(id) {
    $('customerType').value = order.customerType || '';
   setOrderLocation(order.orderLocation || 'Pusat');
      setCartNo(order.orderNo || String(order.invoiceNumber || '').replace(/\D/g, ''));
+  setShipping(order.shipping || 0);
 
   saveCart();
 
@@ -1957,7 +2030,7 @@ function orderText() {
 
    const id = 'CAT-' + getCartNo();
 
-  const total = items.reduce(
+  const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.qty,
     0
   );
@@ -1982,7 +2055,12 @@ function orderText() {
     );
   }
 
-  lines.push('', `Total : ${money(total)}`);
+  const shipping = cartShipping();
+  const total = subtotal + shipping;
+
+  lines.push('');
+  if (shipping > 0) lines.push(`Ongkir : ${money(shipping)}`);
+  lines.push(`Total : ${money(total)}`);
 
   return {
     id,
@@ -2153,6 +2231,8 @@ function importOrderFromText() {
   cart = importedCart;
      const noMatch = text.match(/^New Order:\s*CAT-(\d+)/m);
   setCartNo(noMatch ? noMatch[1] : '');
+  const shipMatch = text.match(/^Ongkir\s*:\s*(.+)$/im);
+  setShipping(shipMatch ? Number(shipMatch[1].replace(/[^\d]/g, '')) || 0 : 0);
   saveCart();
 
   closeImportOrder();
@@ -2443,6 +2523,7 @@ $('navCatalog').onclick = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
   $('customerType').addEventListener('change', renderCart);
+  bindShippingEvents();
   $('closeCart').onclick = closeCart;
   $('cartOverlay').onclick = closeCart;
 
@@ -2606,7 +2687,8 @@ initializeApp();
     }).join('') || '<div class="empty"><strong>This order is empty</strong></div>';
 
     $('viewOrderTotal').textContent = money(order.total ?? total);
-        $('viewOrderMeta').innerHTML = [order.orderLocation, order.customerType, order.requesterName]
+        $('viewOrderMeta').innerHTML = [order.orderLocation, order.customerType, order.requesterName,
+      Number(order.shipping) > 0 ? 'Ongkir ' + money(order.shipping) : '']
       .filter(Boolean).map(esc).join(' · ');
         history.pushState({ centiView: true }, '', location.href);
     window.__viewEntry = true;
@@ -2982,6 +3064,20 @@ initializeApp();
 
         /* totals (last page only) */
     if (page.totals) {
+      if (Number(data.shipping) > 0) {
+        hline(y, '#e5e7eb', 1);
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#777777';
+        ctx.font = '22px Arial';
+        ctx.fillText('Subtotal', M, y + 38);
+        ctx.fillText('Ongkir', M, y + 76);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#171717';
+        ctx.font = 'bold 22px Arial';
+        ctx.fillText(money(data.total - data.shipping), W - M, y + 38);
+        ctx.fillText(money(data.shipping), W - M, y + 76);
+        y += 90;
+      }
       hline(y, '#171717', 2);
 
       ctx.textAlign = 'left';
@@ -3059,7 +3155,8 @@ initializeApp();
       return { item, lines, h: 56 + lines.length * 28 };
     });
 
-    const HEAD1 = 340, HEADN = 130, TABLE_HEAD = 56, TOTALS = 290;
+    const HEAD1 = 340, HEADN = 130, TABLE_HEAD = 56;
+    const TOTALS = 290 + (Number(data.shipping) > 0 ? 90 : 0);
     const limit = H - FOOT - 20;
 
     const pages = [];
@@ -3106,7 +3203,9 @@ initializeApp();
       `  SKU: ${it.sku}`,
       `  Price: ${money(it.price)}`
     ));
-    lines.push('', `Total : ${money(d.total)}`);
+    lines.push('');
+    if (Number(d.shipping) > 0) lines.push(`Ongkir : ${money(d.shipping)}`);
+    lines.push(`Total : ${money(d.total)}`);
     return lines.join('\n');
   }
 
@@ -3225,6 +3324,7 @@ initializeApp();
     runNota({
       items: order.items,
       total: order.total,
+      shipping: Number(order.shipping) || 0,
             customerType: order.customerType,
       requesterName: order.requesterName,
       orderLocation: order.orderLocation,
@@ -3240,7 +3340,8 @@ initializeApp();
 
     runNota({
       items: JSON.parse(JSON.stringify(items)),
-      total: items.reduce((s, i) => s + i.price * i.qty, 0),
+      total: cartGrandTotal(),
+      shipping: cartShipping(),
       customerType: $('customerType').value,
       createdAt: new Date().toISOString(),
             invoiceNumber: 'INV-' + getCartNo()
