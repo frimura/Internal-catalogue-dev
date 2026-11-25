@@ -1018,6 +1018,62 @@ const EVENT_LABELS = {
   }
 
   window.saveOrderToServer = saveOrderToServer;
+
+   window.saveOrderToServer = saveOrderToServer;
+
+  // Called after "Save order" (local). If the same number is on the server,
+  // ask whether to update the server copy too.
+  window.syncSavedToServer = async function (order) {
+    try {
+      if (!REQUESTER_NAMES.includes(requesterName)) return;
+      if (!(settings.inboxPin || '').trim()) return;
+
+      const digits = String(order.orderNo || '').replace(/\D/g, '');
+      if (!digits) return;
+
+      const result = await callApi({ action: 'list', limit: 300 });
+      const onServer = (result.orders || []).find(
+        row => row.order_no === `CAT-${digits}`
+      );
+      if (!onServer) return;
+
+      const who = onServer.last_edited_by || onServer.sender_name || '';
+      const done = onServer.status === 'completed' ? ' (Done)' : '';
+
+      if (!confirm(
+        `CAT-${digits}${done} juga ada di server` +
+        (who ? ` (terakhir diubah: ${who})` : '') + `.\n\n` +
+        `OK = perbarui juga yang di server\n` +
+        `Cancel = simpan lokal saja`
+      )) return;
+
+      await callApi({
+        action: 'move',
+        replace: true,
+        order: {
+          orderNo: `CAT-${digits}`,
+          customerType: order.customerType,
+          orderLocation: order.orderLocation || 'Pusat',
+          customerName: order.name || '',
+          shipping: Number(order.shipping) || 0,
+          items: (order.items || []).map(item => ({
+            sku: item.sku,
+            name: item.name,
+            price: Number(item.price) || 0,
+            qty: Number(item.qty) || 0,
+            image: item.image || ''
+          }))
+        }
+      });
+
+      showToast(words().printSaved);
+      if (activeTab === 'server' && $('savedOrdersPanel')?.classList.contains('open')) {
+        void loadServerOrders();
+      }
+    } catch (error) {
+      showToast(`${words().failed}: ${error.message}`);
+    }
+  };
   /* ---------- inbox polling: badge + incoming-order popup ---------- */
 
   async function pollInbox() {
