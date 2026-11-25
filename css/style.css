@@ -2430,3 +2430,21 @@ main {
   font-style: normal;
   font-weight: 700;
 }
+/* INV / NOT / PAID chips on server cards */
+.doc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.doc-tag {
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.doc-tag.inv  { background: #eef2ff; color: #4338ca; }
+.doc-tag.not  { background: #fff4e0; color: #b45309; }
+.doc-tag.paid { background: #e8f5ef; color: var(--green-dark); }
