@@ -2708,7 +2708,8 @@ initializeApp();
       history.back();
     }
   }
-  window.closeViewOrder = closeViewOrder;
+ window.closeViewOrder = closeViewOrder;
+  window.openViewOrder = openViewOrder;
 
   $('savedOrdersList').addEventListener('click', (e) => {
     const btn = e.target.closest('.view-saved');
