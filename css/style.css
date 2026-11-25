@@ -2407,3 +2407,26 @@ main {
   .server-card-actions { flex-wrap: wrap; }
   .server-card-actions > .primary-button { flex: 1 1 100%; }
 }
+/* CART INFO STRIP (invoice number + where the cart came from) */
+.cart-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: #f9fafb;
+  color: var(--muted);
+  font-size: 12px;
+}
+.cart-info[hidden] { display: none; }
+.cart-info strong { color: var(--ink); font-size: 13px; }
+.cart-info em {
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: #e8f5ef;
+  color: var(--green-dark);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
