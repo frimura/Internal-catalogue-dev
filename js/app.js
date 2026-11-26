@@ -2257,6 +2257,7 @@ function orderText(rev = 0, payment = '') {
         payment ? `Pembayaran : ${payment} (LUNAS)` : ''
       ].filter(Boolean).join('\n')
     ),
+    items,
     total,
     requesterName
   };
