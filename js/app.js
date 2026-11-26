@@ -1411,7 +1411,10 @@ async function ensureFreshCartNo(channel) {
 }
 /* ---------- Telegram revisions (counted on the server) ---------- */
 // Returns the revision number (0 = none), or null if cancelled.
+let telegramResend = false;
+
 async function resolveTelegramRev() {
+  telegramResend = false;
   if (!window.telegramPrepare) return 0;
 
   let info = await window.telegramPrepare();
@@ -1431,6 +1434,7 @@ async function resolveTelegramRev() {
       return info.rev === null ? 0 : info.rev;
     }
     if (choice !== 'resend') return null;
+    telegramResend = true;
   }
 
   return info.rev;
@@ -2171,6 +2175,8 @@ async function sendOrder() {
   if (rev === null) return;
 
   const order = orderText(rev);
+  if (rev > 0) order.id += `-R${rev}`;
+  if (telegramResend) order.id += `-S${Date.now().toString(36)}`;
   const customerType = $('customerType').value;
 
   order.customerType = customerType;
