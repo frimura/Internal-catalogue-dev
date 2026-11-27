@@ -22,9 +22,9 @@
     `<g transform="rotate(-24 ${W / 2} ${H / 2})" text-anchor="middle" ` +
     `font-family="ui-monospace,Menlo,Consolas,monospace" font-weight="800">` +
     `<text x="${W / 2}" y="${H / 2 - 4}" font-size="25" letter-spacing="6" ` +
-    `fill="#f59e0b" fill-opacity=".17">DEVELOPMENT</text>` +
+    `fill="#f59e0b" fill-opacity=".4">DEVELOPMENT</text>` +
     `<text x="${W / 2}" y="${H / 2 + 20}" font-size="10" letter-spacing="4" ` +
-    `fill="#111827" fill-opacity=".16">&lt;/&gt; NOT THE LIVE SITE</text>` +
+    `fill="#111827" fill-opacity=".3">&lt;/&gt; NOT THE LIVE SITE</text>` +
     `</g></svg>`;
 
   const css = `
