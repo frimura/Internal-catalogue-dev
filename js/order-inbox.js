@@ -271,10 +271,6 @@
         `).join('')}
       </select>
       <button id="serverRefresh" type="button">${esc(w.refresh)}</button>
-      <label class="hide-done">
-        <input id="serverHideDone" type="checkbox"${hideDone ? ' checked' : ''}>
-        ${esc(w.hideDone)}
-      </label>
       <div id="serverStatus" class="server-status"></div>
     `;
   }
@@ -453,15 +449,12 @@ const EVENT_LABELS = {
       const id = esc(order.id);
 
       return `
-        <div class="saved-order-card server-card${isDone ? ' is-done' : ''}">
+        <div class="saved-order-card server-card">
           <div class="saved-order-info">
             <div class="server-card-title">
               <strong>${esc(order.order_no)}</strong>
               ${typeBadge(order.customer_type)}
               ${Number(order.rev) > 0 ? `<em class="doc-tag inv">Rev ${Number(order.rev)}</em>` : ''}
-              <span class="order-status-badge ${isDone ? 'done' : 'open'}">
-                ${esc(isDone ? w.done : w.open)}
-              </span>
             </div>
             ${order.customer_name
               ? `<small>${esc(order.customer_name)}</small>` : ''}
