@@ -1190,12 +1190,14 @@ const EVENT_LABELS = {
     }
   };
 
-  window.telegramSent = function (payment) {
+    window.telegramSent = function (payment, order) {
     if (notReadyMessage()) return;
     callApi({
       action: 'telegram_sent',
       payment: payment || '',
-      orderNo: `CAT-${getCartNo()}`
+      orderNo: `CAT-${getCartNo()}`,
+      jobId: (order && order.id) || '',
+      jobText: (order && order.text) || ''
     }).catch(error => console.warn('Telegram log failed:', error));
   };
   /* ---------- inbox polling: badge + incoming-order popup ---------- */
