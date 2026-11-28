@@ -3,6 +3,7 @@
 /* =========================================================
    SWIPE GESTURES (phones / tablets)
    - Catalogue: swipe LEFT opens the cart. Nothing else (no swipe to Saved Orders).
+   - Cart: swipe RIGHT closes it (same as the X button), back to the catalogue.
    - Saved Orders panel: swipe LEFT = Server tab, swipe RIGHT = Local tab.
    Ignored while typing, on horizontally scrolling areas (photo gallery),
    in popups, and near the screen edges (keeps the system back gesture).
@@ -36,7 +37,7 @@
     );
   }
 
-  // 'catalog' | 'saved' | '' (no swipe)
+  // 'catalog' | 'cart' | 'saved' | '' (no swipe)
   function currentMode() {
     if (dialogOpen()) return '';
 
@@ -44,6 +45,7 @@
 
     if (!open.length) return 'catalog';
     if (open.length === 1 && open[0].id === 'savedOrdersPanel') return 'saved';
+    if (open.length === 1 && open[0].id === 'cartPanel') return 'cart';
     return '';
   }
 
@@ -115,7 +117,25 @@
     if (begin.mode === 'catalog') {
       // Desktop shows the cart as a side column already
       if (window.matchMedia('(min-width: 1000px)').matches) return;
-      if (left && typeof openCart === 'function') openCart();
+      if (!left || typeof openCart !== 'function') return;
+
+      // Opening the cart adds a history entry for the Back button. Chrome
+      // ignores entries added before the page has ever been tapped, which
+      // would make Back skip the cart. So wait for one tap first.
+      if (navigator.userActivation && !navigator.userActivation.hasBeenActive) {
+        if (typeof showToast === 'function') {
+          showToast('Tap the page once, then swipe');
+        }
+        return;
+      }
+
+      openCart();
+      return;
+    }
+
+    if (begin.mode === 'cart') {
+      // Same path as the X button, so the Back-button guard stays in sync
+      if (!left && typeof closeCart === 'function') closeCart();
       return;
     }
 
