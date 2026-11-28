@@ -2398,7 +2398,7 @@ if (!response.ok || !result.ok) {
 
     showToast(t('sentTelegram'));
         markNoUsed('telegram', { tgRev: rev });
-   if (window.telegramSent) window.telegramSent(telegramPayment, order);.
+   if (window.telegramSent) window.telegramSent(telegramPayment, order);
      
   } catch (error) {
     showToast(`${t('orderFailed')}: ${error.message}. ${t('sendFailedCopy')}`);
