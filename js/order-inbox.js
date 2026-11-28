@@ -342,19 +342,24 @@ function stamp(iso) {
         tags.push(`<em class="doc-tag paid">PAID · ${esc(order.payment)}</em>`);
       }
     }
-
+    if (order.jb_at) {
+      const tip = `Jubelio: ${stamp(order.jb_at)}`;
+      tags.push(`<em class="doc-tag jb" title="${esc(tip)}">JUBELIO ✓</em>`);
+    }
     return tags.length ? `<div class="doc-tags">${tags.join('')}</div>` : '';
   }
 const EVENT_LABELS = {
     en: {
       created: 'created it', edited: 'edited it', sent: 'sent it to',
       telegram: 'sent it to Telegram',
+     jubelio: 'entered it in Jubelio',
       invoice: 'sent the invoice', nota: 'sent the nota',
       done: 'marked it done', reopened: 'reopened it'
     },
     id: {
       created: 'membuat', edited: 'mengedit', sent: 'mengirim ke',
       telegram: 'mengirim ke Telegram',
+     jubelio: 'memasukkan ke Jubelio',
       invoice: 'mengirim invoice', nota: 'mengirim nota',
       done: 'menandai selesai', reopened: 'membuka lagi'
     }
@@ -406,7 +411,8 @@ const EVENT_LABELS = {
         : '',
       order.inv_by ? `Invoice: ${order.inv_by} ${stamp(order.inv_at)}` : '',
       order.nota_by ? `Nota: ${order.nota_by} ${stamp(order.nota_at)}` : '',
-      order.payment ? `${words().payment}: ${order.payment}` : ''
+      order.payment ? `${words().payment}: ${order.payment}` : '',
+           order.jb_at ? `Jubelio: ${stamp(order.jb_at)}` : ''
     ].filter(Boolean);
   }
  const EYE_ICON =
